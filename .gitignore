@@ -1,0 +1,16 @@
+# Secrets / local env
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Runtime artifacts
+ep_monitor/data/*.db
+ep_monitor/data/*.log
+ep_monitor/reports/*.html
+!ep_monitor/data/.gitkeep
+!ep_monitor/reports/.gitkeep
