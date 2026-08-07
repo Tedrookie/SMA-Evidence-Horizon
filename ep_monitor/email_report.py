@@ -14,6 +14,7 @@ from typing import Optional
 
 from ep_monitor import config
 from ep_monitor.models.article import Article, ArticleSummary
+from ep_monitor.report_charts import charts_as_data_uris
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +285,66 @@ def _fmt_period(start: date, end: date) -> str:
     return f"{start.strftime('%b %d, %Y')} – {end.strftime('%b %d, %Y')}"
 
 
+def _visual_overview_html(chart_uris: dict[str, str]) -> str:
+    """Build the Visual overview section with embedded chart images."""
+    if not chart_uris:
+        return ""
+
+    blocks: list[str] = []
+    bubble = chart_uris.get("bubble_matrix")
+    if bubble:
+        blocks.append(
+            f"""
+            <div style="margin:0 0 18px 0;">
+              <div style="font-size:13px;font-weight:700;color:#111827;margin:0 0 6px 0;">
+                Company × technology matrix
+              </div>
+              <div style="font-size:12px;color:#6b7280;margin:0 0 10px 0;line-height:1.45;">
+                Bubble size = number of papers. Technology is inferred from title/abstract/products
+                (PFA, RF, Cryo, Mapping).
+              </div>
+              <img src="{bubble}" alt="Company by technology bubble matrix"
+                   width="624"
+                   style="display:block;width:100%;max-width:624px;height:auto;border:1px solid #e5e7eb;"/>
+            </div>
+            """.strip()
+        )
+    bar = chart_uris.get("company_bar")
+    if bar:
+        blocks.append(
+            f"""
+            <div style="margin:0 0 8px 0;">
+              <div style="font-size:13px;font-weight:700;color:#111827;margin:0 0 6px 0;">
+                Papers by company
+              </div>
+              <div style="font-size:12px;color:#6b7280;margin:0 0 10px 0;line-height:1.45;">
+                Count of papers attributed to each competitor in this coverage window.
+              </div>
+              <img src="{bar}" alt="Papers by company bar chart"
+                   width="624"
+                   style="display:block;width:100%;max-width:624px;height:auto;border:1px solid #e5e7eb;"/>
+            </div>
+            """.strip()
+        )
+
+    if not blocks:
+        return ""
+
+    inner = "\n".join(blocks)
+    return f"""
+          <tr>
+            <td style="padding:22px 28px 8px 28px;background:#ffffff;
+                       border-bottom:1px solid #e5e7eb;">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
+                          text-transform:uppercase;color:#9ca3af;margin:0 0 14px 0;">
+                Visual overview
+              </div>
+              {inner}
+            </td>
+          </tr>
+    """.strip()
+
+
 def _truncate(text: str, limit: int = 500) -> str:
     cleaned = " ".join((text or "").split())
     if len(cleaned) <= limit:
@@ -441,6 +502,9 @@ def build_basic_html_report(
     else:
         dist_bits = "—"
 
+    chart_uris = charts_as_data_uris(ordered) if ordered else {}
+    charts_html = _visual_overview_html(chart_uris)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -545,6 +609,8 @@ def build_basic_html_report(
               </table>
             </td>
           </tr>
+
+          {charts_html}
 
           <!-- Papers -->
           <tr>
