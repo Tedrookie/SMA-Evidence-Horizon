@@ -20,7 +20,10 @@ REPO_ROOT = PACKAGE_ROOT.parent
 PROJECT_ROOT = PACKAGE_ROOT  # backward-compatible alias
 DATA_DIR = PACKAGE_ROOT / "data"
 REPORTS_DIR = PACKAGE_ROOT / "reports"
+EXPORTS_DIR = PACKAGE_ROOT / "exports"
 DATABASE_PATH = DATA_DIR / "processed_articles.db"
+PLAYBOOK_PATH = DATA_DIR / "playbook.yaml"
+ARTICLES_DB_PATH = DATA_DIR / "articles_library.db"
 
 
 def _load_dotenv() -> None:

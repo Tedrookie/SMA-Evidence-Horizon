@@ -105,25 +105,16 @@ def build_pubmed_query(
     disease_terms: Sequence[str] | None = None,
     ep_terms: Sequence[str] | None = None,
     company_terms: Sequence[str] | None = None,
+    playbook: dict | None = None,
 ) -> str:
     """Construct an optimized Boolean PubMed query.
 
     Combines ablation technologies, disease terms, EP topics, competitor
-    company names, AND product keywords. Optionally restricts to a
-    publication-date window via ``[PDAT]``.
-
-    Args:
-        lookback_days: Used when ``start_date`` is omitted
-            (inclusive window ending at ``end_date``).
-        end_date: Inclusive end of the publication window (default: today).
-        start_date: Inclusive start of the publication window.
-        include_date_filter: If True, append a PDAT range clause.
-        technology_terms / disease_terms / ep_terms / company_terms:
-            Optional overrides (mainly for tests).
-
-    Returns:
-        Entrez-ready query string.
+    company names, AND product keywords from the playbook (or config
+    fallback). Optionally restricts to a publication-date window via ``[PDAT]``.
     """
+    from ep_monitor import playbook as pb
+
     end = end_date or date.today()
     if start_date is None:
         days = max(int(lookback_days), 1)
@@ -131,18 +122,58 @@ def build_pubmed_query(
     else:
         start = start_date
 
-    tech = list(technology_terms) if technology_terms is not None else list(
-        config.ABLATION_TECHNOLOGIES
-    )
-    diseases = list(disease_terms) if disease_terms is not None else list(
-        config.CARDIAC_DISEASES
-    )
-    ep = list(ep_terms) if ep_terms is not None else list(config.EP_TOPICS)
-    companies = (
-        list(company_terms)
-        if company_terms is not None
-        else companies_for_query(include_own_portfolio=False)
-    )
+    book = playbook if playbook is not None else pb.load_playbook()
+    domains = pb.enabled_domains(book)
+
+    tech: list[str] = []
+    diseases: list[str] = []
+    ep: list[str] = []
+    if technology_terms is not None:
+        tech = list(technology_terms)
+    if disease_terms is not None:
+        diseases = list(disease_terms)
+    if ep_terms is not None:
+        ep = list(ep_terms)
+
+    if technology_terms is None or disease_terms is None or ep_terms is None:
+        if domains:
+            for domain in domains:
+                vocab = pb.query_vocab_for_domain(domain)
+                if technology_terms is None:
+                    tech.extend(vocab["technologies"])
+                if disease_terms is None:
+                    diseases.extend(vocab["diseases"])
+                if ep_terms is None:
+                    ep.extend(vocab["ep_topics"])
+        else:
+            if technology_terms is None:
+                tech = list(config.ABLATION_TECHNOLOGIES)
+            if disease_terms is None:
+                diseases = list(config.CARDIAC_DISEASES)
+            if ep_terms is None:
+                ep = list(config.EP_TOPICS)
+
+    # Dedupe while preserving order
+    def _dedupe(items: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            key = item.casefold().strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(item.strip())
+        return out
+
+    tech = _dedupe(tech)
+    diseases = _dedupe(diseases)
+    ep = _dedupe(ep)
+
+    if company_terms is not None:
+        companies = list(company_terms)
+    else:
+        cmap = pb.company_product_map(book, include_own=False)
+        companies = companies_for_query(company_map=cmap, include_own_portfolio=False)
 
     # (ablation ∪ EP) ∧ diseases ∧ (companies ∪ products)
     topic_clause = _or_clause(tech + ep)

@@ -1,116 +1,78 @@
-# EP Monitor System
+# EP Monitor System (J&J EP Monitor)
 
-Automated PubMed competitive intelligence monitor for **cardiac electrophysiology**, built for **Johnson & Johnson Biosense Webster**.
+Automated **PubMed competitive intelligence** monitor for cardiac electrophysiology, built for **Strategic Medical Affairs (SMA) · J&J MedTech China (JJMC) / Biosense Webster**.
 
-Retrieves recent EP papers on competitor companies and devices, attributes them via product-name mapping, and emails an HTML digest. Optional AI summarization and importance scoring are available when an LLM API key is configured.
-
-**What it does**
-- Searches PubMed for ablation / mapping / EP papers involving competitors (Boston Scientific, Medtronic, Abbott, MicroPort, AtriCure)
-- Matches companies by name and product keywords (FARAPULSE, PulseSelect, EnSite X, etc.)
-- Deduplicates with SQLite so the same paper is not emailed twice
-- Sends a branded HTML digest via SMTP (BCC to protect recipient privacy)
-- Optional full pipeline: OpenAI / DeepSeek summaries + high-impact filtering (score ≥ 7)
+It retrieves recent EP papers about competitor companies and devices, stores full article records for later LLM analysis, and emails a **J&J-styled HTML digest** (with optional charts).
 
 ---
 
-## Architecture
+## Purpose
 
-```
-                    ┌─────────────────────────────────────┐
-                    │            main.py (CLI)            │
-                    │   orchestrates one pipeline cycle   │
-                    └─────────────────┬───────────────────┘
-                                      │
-          ┌───────────────────────────┼───────────────────────────┐
-          ▼                           ▼                           ▼
- ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
- │ IntelligenceSource│       │   database.py   │       │ openai_summary  │
- │  (sources/base) │       │  SQLite store   │       │  LLM scoring    │
- └────────┬────────┘       └────────▲────────┘       └────────┬────────┘
-          │                         │                         │
-          ▼                         │                         ▼
- ┌─────────────────┐       ┌────────┴────────┐       ┌─────────────────┐
- │ pubmed_search   │──────▶│ pubmed_parser   │       │  email_report   │
- │ + query builder │       │ → Article model │       │  HTML + SMTP    │
- └─────────────────┘       └────────┬────────┘       └─────────────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────┐
-                         │ company_matcher │
-                         │ name + products │
-                         └─────────────────┘
-```
-
-### Design principles
-
-| Principle | How it is applied |
-|-----------|-------------------|
-| Modular | One responsibility per file; modules talk via `Article` / `ArticleSummary` |
-| Extensible sources | `IntelligenceSource` ABC — PubMed today; ClinicalTrials, FDA, patents later |
-| Product-aware CI | `COMPANY_PRODUCT_MAP` catches FARAPULSE / PulseSelect / EnSite X without company name |
-| Idempotent | SQLite keyed by `(source, source_id)` prevents re-processing |
-| Configurable | Env vars for secrets; `config.py` for vocabularies and thresholds |
-| Schedulable | Thin CLI + OS cron / Task Scheduler (see `scheduler.py`) |
-
-### Why product-name mapping matters
-
-Many pivotal papers never say “Boston Scientific” — they say **FARAPULSE** or **Farawave**. The matcher scans title + abstract for product keywords and attributes the parent company before the LLM step, improving both PubMed recall (query OR products) and post-hoc classification accuracy.
+- Give SMA a repeatable weekly (or daily) scan of competitor EP literature.
+- Centralize **what to search** (keywords, companies, products, domains, recipients, frequency) in one playbook.
+- Let non-engineers change surveillance scope via an **App Manual console** without editing Python.
+- Keep a durable article library (SQLite + Excel) that can be handed to an LLM later.
 
 ---
 
-## Workflow (one cycle)
+## Architecture (high level)
 
-1. **Query PubMed** — Boolean query: (technologies ∪ EP topics) ∧ diseases ∧ (companies ∪ products), last N days.
-2. **Parse** — Entrez records → `Article` (title, abstract, journal, date, PMID, authors, URL).
-3. **Dedupe** — Drop PMIDs already in SQLite.
-4. **Company match** — Tag `matched_companies` / `matched_products` from name + device keywords.
-5. **Summarize** — OpenAI returns structured CI fields + importance score 1–10.
-6. **Persist** — Save summaries; mark PMIDs processed.
-7. **Report** — HTML email for score ≥ threshold; save copy under `reports/`; footer with distributions.
+```
+playbook.yaml  ──►  PubMed search  ──►  company/product match
+                         │                      │
+                         ▼                      ▼
+                   SQLite library          HTML digest + charts
+                   + Excel export               │
+                                                ▼
+                                           SMTP email (BCC)
+```
+
+Interactive control: **Streamlit console** reads/writes the same playbook and can trigger fetch / save / email.
 
 ---
 
-## Project layout
+## File map (for upgrades)
 
-```
-ep_monitor/
-├── config.py              # Vocabularies, product map, env-backed secrets
-├── company_matcher.py     # Company + product attribution
-├── pubmed_search.py       # Entrez search (IntelligenceSource)
-├── pubmed_parser.py       # XML/dict → Article
-├── openai_summary.py      # LLM summarization + scoring
-├── database.py            # SQLite processed IDs + summaries
-├── email_report.py        # HTML report + SMTP
-├── scheduler.py           # Cron / Task Scheduler helpers
-├── main.py                # Pipeline orchestration
-├── models/
-│   └── article.py         # Shared Article / ArticleSummary dataclasses
-├── sources/
-│   └── base.py            # IntelligenceSource ABC (future-proof)
-├── data/                  # SQLite DB (gitignored content)
-└── reports/               # Saved HTML reports
-```
+| Path | Role |
+|------|------|
+| [`ep_monitor/data/playbook.yaml`](ep_monitor/data/playbook.yaml) | **Central playbook** — domains, keywords, companies, products, schedule, recipients |
+| [`ep_monitor/playbook.py`](ep_monitor/playbook.py) | Load / save / query helpers for the playbook |
+| [`ep_monitor/console.py`](ep_monitor/console.py) | Streamlit App Manual UI |
+| [`ep_monitor/main_basic.py`](ep_monitor/main_basic.py) | Default digest pipeline (no LLM) |
+| [`ep_monitor/main.py`](ep_monitor/main.py) | Full CI pipeline with optional LLM scoring |
+| [`ep_monitor/config.py`](ep_monitor/config.py) | Paths, `.env` secrets, legacy defaults |
+| [`ep_monitor/pubmed_search.py`](ep_monitor/pubmed_search.py) | PubMed Boolean query + Entrez fetch |
+| [`ep_monitor/company_matcher.py`](ep_monitor/company_matcher.py) | Company / product attribution |
+| [`ep_monitor/database.py`](ep_monitor/database.py) | SQLite (dedupe + article library + summaries) |
+| [`ep_monitor/export_excel.py`](ep_monitor/export_excel.py) | Excel export for LLM handoff |
+| [`ep_monitor/email_report.py`](ep_monitor/email_report.py) | J&J-styled HTML digest + SMTP (BCC) |
+| [`ep_monitor/report_charts.py`](ep_monitor/report_charts.py) | Bubble matrix + company bar charts |
+| [`ep_monitor/scheduler.py`](ep_monitor/scheduler.py) | Cron / Windows Task Scheduler helpers |
+| [`ep_monitor/data/articles_library.db`](ep_monitor/data/) | Full article library (gitignored) |
+| [`ep_monitor/data/basic_processed.db`](ep_monitor/data/) | Email dedupe store (gitignored) |
+| [`ep_monitor/exports/`](ep_monitor/exports/) | Excel snapshots (`articles_YYYY-MM-DD.xlsx`) |
+| [`ep_monitor/reports/`](ep_monitor/reports/) | Saved HTML digests |
+| [`.env`](.env.example) | Secrets only: NCBI, SMTP, optional LLM keys |
 
 ---
 
-## Implementation status
+## Playbook (how to change what we collect)
 
-| Module | Status |
-|--------|--------|
-| Architecture + stubs | Done |
-| `config.py` (incl. product map) | Done (live config) |
-| `models/` + `sources/base` | Done (live interfaces) |
-| `company_matcher.py` | **Done** |
-| `pubmed_search.py` | **Done** |
-| `pubmed_parser.py` | **Done** |
-| `database.py` | **Done** |
-| `openai_summary.py` | **Done** |
-| `email_report.py` | **Done** |
-| `scheduler.py` | **Done** |
-| `main.py` | **Done** (full CI + LLM) |
-| `main_basic.py` | **Done** (PubMed + email, no LLM) |
+Edit **`ep_monitor/data/playbook.yaml`** or use the console.
 
-All modules implemented.
+Contents include:
+
+- **meta** — product name, owner, tagline  
+- **schedule** — `weekly`/`daily`, weekday, hour, lookback days  
+- **recipients** — BCC list (falls back to `EMAIL_TO` in `.env` if empty)  
+- **domains[]** — each domain has technologies, diseases, EP topics, companies + products, optional own portfolio  
+
+### Add a new domain (e.g. oncology robotics)
+
+1. Open the console → **Playbook editor** → **Add domain template**, or copy an existing block under `domains:` in YAML.  
+2. Fill keywords / companies / products.  
+3. Set `enabled: true`.  
+4. Save. Next PubMed run uses all enabled domains (OR’d keyword sets).
 
 ---
 
@@ -120,39 +82,86 @@ All modules implemented.
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-copy .env.example .env          # fill NCBI_EMAIL (+ SMTP_* for email)
+copy .env.example .env          # set NCBI_EMAIL + SMTP_*
 ```
 
-### Basic digest (no OpenAI / no LLM)
+### App Manual console (recommended)
 
-Needs `NCBI_EMAIL`. SMTP only if you send email.
+```bash
+python -m ep_monitor.console
+```
+
+In the browser UI you can:
+
+1. Edit playbook (keywords, companies, recipients, schedule)  
+2. Fetch PubMed & preview  
+3. Save to SQLite + Excel  
+4. Run full digest (optional email)  
+5. Browse / export the article library  
+
+### CLI digest (no LLM)
 
 ```bash
 python -m ep_monitor.main_basic --dry-run
 python -m ep_monitor.main_basic --no-email
-python -m ep_monitor.main_basic --lookback-days 7
+python -m ep_monitor.main_basic --force
+python -m ep_monitor.main_basic --print-schedule
 ```
 
-### Full CI pipeline (OpenAI / DeepSeek summary)
+### Full LLM pipeline (optional)
 
-Needs LLM key + SMTP for email.
+Needs `OPENAI_API_KEY` or `DEEPSEEK_API_KEY` in `.env`.
 
 ```bash
 python -m ep_monitor.main --dry-run
-python -m ep_monitor.main --no-email
-python -m ep_monitor.main --print-schedule
 python -m ep_monitor.main
 ```
 
-### Scheduling
+---
 
-- **Basic:** `python -m ep_monitor.main_basic`
-- **Full:** `python -m ep_monitor.main`
-- **Linux/macOS cron example:** `0 7 * * 1 cd /path/to/EPMarket_News && .venv/bin/python -m ep_monitor.main_basic`
-- **Windows:** Task Scheduler daily/weekly (helpers in `scheduler.py`)
+## Article library & Excel (for LLM later)
+
+Every successful basic run:
+
+1. Upserts full records into `ep_monitor/data/articles_library.db`  
+2. Writes `ep_monitor/exports/articles_YYYY-MM-DD.xlsx` with columns:  
+   `pmid, title, abstract, journal, publication_date, authors, url, matched_companies, matched_products, domain_id, fetched_at, source`
+
+You can also export from the console **Article library** tab.
 
 ---
 
-## Future sources (no pipeline rewrite)
+## Email
 
-Add a class under `sources/` implementing `IntelligenceSource.fetch()`, register it in `main.py`. Shared `Article` model + `(source, source_id)` DB key absorb ClinicalTrials.gov, FDA, HRS/EHRA abstracts, press releases, patents, Semantic Scholar, RSS.
+- Styled like J&J All-Employee News: red accent `#c8102e`, dark header, section labels, large headlines, red text CTAs (`View on PubMed →`).  
+- Recipients from playbook (BCC); SMTP credentials from `.env`.  
+- Includes Visual overview charts when matplotlib is available.
+
+---
+
+## Scheduling
+
+```bash
+python -m ep_monitor.main_basic --print-schedule
+```
+
+Uses playbook schedule (default Monday 08:00). Prefer **Windows Task Scheduler** / cron over a long-lived Python process. Keep the PC awake (or allow wake timers) at send time.
+
+---
+
+## Retrieval logic (reminder)
+
+```
+(technologies ∪ EP topics)  AND  diseases  AND  (companies ∪ products)  AND  [PDAT window]
+```
+
+All three keyword groups come from **enabled domains** in the playbook.
+
+---
+
+## Upgrade / maintenance notes
+
+- Prefer changing **playbook.yaml** (or console) over editing Python for keywords.  
+- Keep secrets only in `.env`.  
+- New intelligence sources can implement `IntelligenceSource` under `sources/` without rewriting the digest.  
+- LLM summarization remains optional (`main.py`); basic digest does not require an API token.

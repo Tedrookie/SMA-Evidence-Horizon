@@ -4,3 +4,6 @@ python-dotenv>=1.0.1
 schedule>=1.2.2
 requests>=2.32.0
 matplotlib>=3.8.0
+PyYAML>=6.0.1
+openpyxl>=3.1.0
+streamlit>=1.32.0

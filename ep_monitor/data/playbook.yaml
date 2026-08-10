@@ -1,0 +1,92 @@
+meta:
+  product_name: J&J EP Monitor
+  owner: Strategic Medical Affairs / JJMC
+  tagline: Moving healthcare forward, together.
+schedule:
+  mode: weekly
+  weekday: monday
+  hour: 8
+  minute: 0
+  lookback_days: 7
+recipients:
+- name: ''
+  email: zhangchuhan1210@126.com
+domains:
+- id: ep
+  name: Cardiac Electrophysiology
+  enabled: true
+  technologies:
+  - Pulsed Field Ablation
+  - Radiofrequency Ablation
+  - Cryoballoon Ablation
+  - Cryoablation
+  - Laser Ablation
+  - Catheter Ablation
+  diseases:
+  - Atrial Fibrillation
+  - Persistent Atrial Fibrillation
+  - Persistent AF
+  - Ventricular Tachycardia
+  - Supraventricular Tachycardia
+  ep_topics:
+  - Electrophysiology
+  - Electroanatomic Mapping
+  - 3D Mapping
+  - Contact Force
+  - High Density Mapping
+  - Intracardiac Echocardiography
+  companies:
+  - name: Boston Scientific
+    products:
+    - FARAPULSE
+    - Farapulse
+    - Farawave
+    - Farastar
+    - FARAWAVE
+    - FARASTAR
+    - VersaCross
+  - name: Medtronic
+    products:
+    - PulseSelect
+    - Affera
+    - Sphere-9
+    - Sphere 9
+    - Arctic Front
+    - DiamondTemp
+    - PVAC
+  - name: Abbott
+    products:
+    - EnSite X
+    - EnSite
+    - Volt PFA
+    - Volt
+    - TactiFlex
+    - TactiCath
+    - Advisor HD Grid
+    - Ampere
+  - name: MicroPort
+    products:
+    - FireMagic
+    - Columbus
+    - EasyFinder
+  - name: AtriCure
+    products:
+    - AtriClip
+    - Isolator Synergy
+    - EPi-Sense
+    - cryoICE
+  own_portfolio:
+  - name: Johnson & Johnson
+    products:
+    - Biosense Webster
+    - VARIPULSE
+    - Varipulse
+    - CARTO
+    - QDOT MICRO
+    - QDOT
+    - THERMOCOOL
+    - ThermoCool
+    - OPTRELL
+    - Octaray
+    - OCTARAY
+    - NuVision

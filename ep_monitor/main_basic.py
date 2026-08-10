@@ -1,20 +1,16 @@
 """Basic PubMed digest — no LLM / OpenAI required.
 
-Fetches recent EP competitor papers, attaches company/product matches,
-and emails a basic HTML listing (title, journal, date, PMID, authors,
-abstract preview, PubMed link).
-
-The full CI pipeline with AI summaries remains available via::
-
-    python -m ep_monitor.main
+Fetches recent competitor papers using the surveillance playbook,
+stores full articles for LLM handoff, and emails a J&J-styled digest.
 
 Usage
 -----
     python -m ep_monitor.main_basic
     python -m ep_monitor.main_basic --lookback-days 7 --no-email
     python -m ep_monitor.main_basic --dry-run
-    python -m ep_monitor.main_basic --force   # re-email even if already sent
+    python -m ep_monitor.main_basic --force
     python -m ep_monitor.main_basic --print-schedule
+    python -m ep_monitor.console
 """
 
 from __future__ import annotations
@@ -26,6 +22,7 @@ from datetime import date
 from pathlib import Path
 
 from ep_monitor import config
+from ep_monitor import playbook as pb
 from ep_monitor.company_matcher import match_articles
 from ep_monitor.database import ArticleDatabase
 from ep_monitor.email_report import (
@@ -34,14 +31,15 @@ from ep_monitor.email_report import (
     save_report,
     send_email,
 )
+from ep_monitor.export_excel import articles_to_rows, export_articles_to_excel
 from ep_monitor.pubmed_search import search_pubmed
 from ep_monitor.scheduler import print_schedule_instructions
 
 logger = logging.getLogger(__name__)
 
-# Separate source key so basic runs do not block the full LLM pipeline later.
 _BASIC_SOURCE = "pubmed_basic"
 _BASIC_DB = config.DATA_DIR / "basic_processed.db"
+_LIBRARY_DB = config.ARTICLES_DB_PATH
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -57,33 +55,40 @@ def setup_logging(verbose: bool = False) -> None:
 
 def run_basic_pipeline(
     *,
-    lookback_days: int,
+    lookback_days: int | None = None,
     send_email_flag: bool,
     dry_run: bool,
     force: bool = False,
+    playbook: dict | None = None,
 ) -> int:
-    """Run PubMed → match → basic HTML email (no LLM)."""
+    """Run PubMed → match → library save → Excel → HTML email (no LLM)."""
+    book = playbook if playbook is not None else pb.load_playbook()
+    days = lookback_days if lookback_days is not None else pb.lookback_days(book)
+    domain_ids = [d.get("id", "ep") for d in pb.enabled_domains(book)]
+    domain_id = ",".join(str(x) for x in domain_ids) if domain_ids else "ep"
+    cmap = pb.company_product_map(book, include_own=False)
+
     report_day = date.today()
     logger.info("=" * 60)
-    logger.info("J&J EP Monitor — EP PubMed Digest — %s", report_day.isoformat())
+    logger.info("%s — EP PubMed Digest — %s", pb.product_name(book), report_day.isoformat())
     logger.info(
-        "lookback_days=%s dry_run=%s send_email=%s force=%s (no LLM)",
-        lookback_days,
+        "lookback_days=%s dry_run=%s send_email=%s force=%s domains=%s",
+        days,
         dry_run,
         send_email_flag,
         force,
+        domain_ids,
     )
     logger.info("=" * 60)
 
-    articles = search_pubmed(lookback_days=lookback_days)
+    articles = search_pubmed(lookback_days=days)
     total_found = len(articles)
     logger.info("Fetched %d article(s) from PubMed", total_found)
 
-    # Tag with basic source so dedupe is isolated from the full pipeline DB.
     for article in articles:
         article.source = _BASIC_SOURCE
 
-    with ArticleDatabase(_BASIC_DB) as db:
+    with ArticleDatabase(_BASIC_DB) as dedupe_db, ArticleDatabase(_LIBRARY_DB) as library_db:
         if force:
             new_articles = articles
             logger.info(
@@ -91,14 +96,14 @@ def run_basic_pipeline(
                 len(new_articles),
             )
         else:
-            new_articles = db.filter_new(articles)
+            new_articles = dedupe_db.filter_new(articles)
             logger.info("%d new article(s) after dedupe", len(new_articles))
 
         if not new_articles:
             logger.info("Nothing new to report. Exiting successfully.")
             return 0
 
-        match_articles(new_articles, competitors_only=True)
+        match_articles(new_articles, company_map=cmap, competitors_only=True)
         attributed = sum(1 for a in new_articles if a.matched_companies)
         logger.info(
             "Attributed %d / %d article(s) to competitors",
@@ -117,11 +122,20 @@ def run_basic_pipeline(
             logger.info("Dry-run complete; nothing emailed or marked processed.")
             return 0
 
+        # Persist full articles for later LLM / Excel handoff
+        library_db.upsert_articles(new_articles, domain_id=domain_id)
+        excel_path = export_articles_to_excel(
+            articles_to_rows(new_articles, domain_id=domain_id),
+            report_date=report_day,
+        )
+        logger.info("Excel snapshot: %s", excel_path)
+
         html = build_basic_html_report(
             new_articles,
             report_date=report_day,
             total_found=total_found,
-            lookback_days=lookback_days,
+            lookback_days=days,
+            playbook=book,
         )
         report_path = save_report(
             html,
@@ -135,19 +149,20 @@ def run_basic_pipeline(
             subject = basic_subject(
                 report_day,
                 article_count=len(new_articles),
-                lookback_days=lookback_days,
+                lookback_days=days,
+                playbook=book,
             )
-            ok = send_email(html, subject=subject)
+            recipients = pb.recipient_emails(book)
+            ok = send_email(html, subject=subject, recipients=recipients or None)
             if not ok:
                 logger.error("Email send failed; report is still on disk.")
                 return 1
-            logger.info("Email sent (%d papers)", len(new_articles))
+            logger.info("Email sent (%d papers) to %d recipient(s)", len(new_articles), len(recipients or config.EMAIL_TO))
         else:
             logger.info("--no-email set; skipped SMTP send.")
 
-        # Mark processed only after a successful report build
         for article in new_articles:
-            db.mark_processed(
+            dedupe_db.mark_processed(
                 _BASIC_SOURCE,
                 article.source_id,
                 title=article.title,
@@ -163,14 +178,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "EP PubMed basic digest (no OpenAI). "
-            "Uses PubMed + optional email only."
+            "Uses playbook keywords + optional email."
         ),
     )
     parser.add_argument(
         "--lookback-days",
         type=int,
         default=None,
-        help="Publication lookback window in days (default from .env / 7).",
+        help="Publication lookback window in days (default from playbook / .env).",
     )
     parser.add_argument(
         "--dry-run",
@@ -180,7 +195,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-email",
         action="store_true",
-        help="Save HTML report but do not send email.",
+        help="Save HTML report / Excel but do not send email.",
     )
     parser.add_argument(
         "--force",
@@ -208,14 +223,19 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for the basic (no-LLM) digest."""
     args = parse_args(argv)
     setup_logging(verbose=args.verbose)
-    lookback = args.lookback_days or config.LOOKBACK_DAYS
+    book = pb.load_playbook()
+    lookback = args.lookback_days or pb.lookback_days(book)
 
     if args.print_schedule:
+        sched = book.get("schedule") or {}
         print_schedule_instructions(
-            config.SCHEDULE_MODE,
+            str(sched.get("mode") or config.SCHEDULE_MODE),
             project_root=Path(__file__).resolve().parent.parent,
             module="main_basic",
             lookback_days=lookback,
+            hour=int(sched.get("hour", 8)),
+            minute=int(sched.get("minute", 0)),
+            weekday=str(sched.get("weekday") or "monday"),
         )
         return 0
 
@@ -225,6 +245,7 @@ def main(argv: list[str] | None = None) -> int:
             send_email_flag=not args.no_email,
             dry_run=args.dry_run,
             force=args.force,
+            playbook=book,
         )
     except Exception:
         logger.exception("Unhandled basic-pipeline failure")

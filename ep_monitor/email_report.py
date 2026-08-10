@@ -264,14 +264,14 @@ def basic_subject(
     lookback_days: int = 7,
     period_start: date | None = None,
     period_end: date | None = None,
+    playbook: dict | None = None,
 ) -> str:
     """Subject line for the basic PubMed listing report."""
     end = period_end or report_date or date.today()
     start = period_start or (end - timedelta(days=max(lookback_days, 1) - 1))
     window = _fmt_period(start, end)
-    return (
-        f"J&J EP Monitor — EP PubMed Digest ({window}) · {article_count} papers"
-    )
+    return f"J&J News: EP PubMed Digest — {window} ({article_count} papers)"
+
 
 
 def _fmt_period(start: date, end: date) -> str:
@@ -295,17 +295,18 @@ def _visual_overview_html(chart_uris: dict[str, str]) -> str:
     if bubble:
         blocks.append(
             f"""
-            <div style="margin:0 0 18px 0;">
-              <div style="font-size:13px;font-weight:700;color:#111827;margin:0 0 6px 0;">
+            <div style="margin:0 0 20px 0;">
+              <div style="font-size:18px;font-weight:700;color:#1a1a1a;margin:0 0 6px 0;
+                          font-family:Arial,Helvetica,sans-serif;">
                 Company × technology matrix
               </div>
-              <div style="font-size:12px;color:#6b7280;margin:0 0 10px 0;line-height:1.45;">
-                Bubble size = number of papers. Technology is inferred from title/abstract/products
-                (PFA, RF, Cryo, Mapping).
+              <div style="font-size:13px;color:#555555;margin:0 0 12px 0;line-height:1.5;
+                          font-family:Arial,Helvetica,sans-serif;">
+                Bubble size = number of papers. Technology is inferred from title/abstract/products.
               </div>
               <img src="{bubble}" alt="Company by technology bubble matrix"
                    width="624"
-                   style="display:block;width:100%;max-width:624px;height:auto;border:1px solid #e5e7eb;"/>
+                   style="display:block;width:100%;max-width:624px;height:auto;"/>
             </div>
             """.strip()
         )
@@ -314,15 +315,17 @@ def _visual_overview_html(chart_uris: dict[str, str]) -> str:
         blocks.append(
             f"""
             <div style="margin:0 0 8px 0;">
-              <div style="font-size:13px;font-weight:700;color:#111827;margin:0 0 6px 0;">
+              <div style="font-size:18px;font-weight:700;color:#1a1a1a;margin:0 0 6px 0;
+                          font-family:Arial,Helvetica,sans-serif;">
                 Papers by company
               </div>
-              <div style="font-size:12px;color:#6b7280;margin:0 0 10px 0;line-height:1.45;">
+              <div style="font-size:13px;color:#555555;margin:0 0 12px 0;line-height:1.5;
+                          font-family:Arial,Helvetica,sans-serif;">
                 Count of papers attributed to each competitor in this coverage window.
               </div>
               <img src="{bar}" alt="Papers by company bar chart"
                    width="624"
-                   style="display:block;width:100%;max-width:624px;height:auto;border:1px solid #e5e7eb;"/>
+                   style="display:block;width:100%;max-width:624px;height:auto;"/>
             </div>
             """.strip()
         )
@@ -333,10 +336,10 @@ def _visual_overview_html(chart_uris: dict[str, str]) -> str:
     inner = "\n".join(blocks)
     return f"""
           <tr>
-            <td style="padding:22px 28px 8px 28px;background:#ffffff;
-                       border-bottom:1px solid #e5e7eb;">
-              <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
-                          text-transform:uppercase;color:#9ca3af;margin:0 0 14px 0;">
+            <td style="padding:28px 32px 12px 32px;background:#ffffff;">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
+                          text-transform:uppercase;color:#c8102e;margin:0 0 16px 0;
+                          font-family:Arial,Helvetica,sans-serif;">
                 Visual overview
               </div>
               {inner}
@@ -355,94 +358,152 @@ def _truncate(text: str, limit: int = 500) -> str:
 def _company_chips(companies: list[str]) -> str:
     if not companies:
         return (
-            '<span style="display:inline-block;padding:3px 10px;margin:0 6px 6px 0;'
-            "background:#f3f4f6;color:#6b7280;font-size:12px;font-weight:600;"
-            'border-radius:3px;">Unmatched</span>'
+            '<span style="display:inline-block;padding:4px 10px;margin:0 6px 6px 0;'
+            "background:#f0f0f0;color:#666666;font-size:11px;font-weight:700;"
+            'font-family:Arial,Helvetica,sans-serif;">Unmatched</span>'
         )
     chips = []
     for name in companies:
         chips.append(
-            f'<span style="display:inline-block;padding:3px 10px;margin:0 6px 6px 0;'
-            f"background:#fce8ec;color:#9f1239;font-size:12px;font-weight:600;"
-            f'border-radius:3px;">{escape(name)}</span>'
+            f'<span style="display:inline-block;padding:4px 10px;margin:0 6px 6px 0;'
+            f"background:#c8102e;color:#ffffff;font-size:11px;font-weight:700;"
+            f'font-family:Arial,Helvetica,sans-serif;">{escape(name)}</span>'
         )
     return "".join(chips)
 
 
 def _basic_paper_section(article: Article, index: int) -> str:
+    """J&J All-Employee News–style article card."""
     products = ", ".join(article.matched_products) if article.matched_products else "—"
     authors = ", ".join(article.authors[:8]) if article.authors else "Unknown"
     if article.authors and len(article.authors) > 8:
         authors += f" (+{len(article.authors) - 8} more)"
     pubmed_link = article.url or f"https://pubmed.ncbi.nlm.nih.gov/{article.source_id}/"
-    abstract = _truncate(article.abstract, 480) or "No abstract available."
+    abstract = _truncate(article.abstract, 420) or "No abstract available."
     chips = _company_chips(article.matched_companies)
 
     return f"""
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="margin:0 0 18px 0;border-collapse:collapse;
-                  border:1px solid #e8eaed;">
+           style="margin:0 0 28px 0;border-collapse:collapse;">
       <tr>
-        <td style="width:4px;background:#c8102e;font-size:0;line-height:0;">&nbsp;</td>
-        <td style="padding:18px 20px;background:#ffffff;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;
-                      text-transform:uppercase;color:#9ca3af;margin:0 0 8px 0;">
-            Paper {index}
+        <td style="padding:0 0 8px 0;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;
+                      text-transform:uppercase;color:#c8102e;
+                      font-family:Arial,Helvetica,sans-serif;">
+            Competitive Intelligence · Paper {index}
           </div>
-          <div style="font-size:16px;font-weight:700;line-height:1.4;color:#111827;
-                      margin:0 0 10px 0;">
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 10px 0;">
+          <div style="font-size:22px;font-weight:700;line-height:1.3;color:#1a1a1a;
+                      font-family:Arial,Helvetica,sans-serif;">
             <a href="{escape(pubmed_link, quote=True)}"
-               style="color:#111827;text-decoration:none;">
+               style="color:#1a1a1a;text-decoration:none;">
               {escape(article.title)}
-            </a>
-          </div>
-          <div style="margin:0 0 12px 0;">
-            {chips}
-          </div>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                 style="margin:0 0 12px 0;border-collapse:collapse;">
-            <tr>
-              <td style="padding:0 0 4px 0;font-size:13px;color:#4b5563;line-height:1.5;">
-                <span style="color:#9ca3af;">Journal</span>&nbsp;
-                {escape(article.journal or "Unknown")}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 0 4px 0;font-size:13px;color:#4b5563;line-height:1.5;">
-                <span style="color:#9ca3af;">Published</span>&nbsp;
-                {_fmt_date(article.publication_date)}
-                &nbsp;&nbsp;·&nbsp;&nbsp;
-                <span style="color:#9ca3af;">PMID</span>&nbsp;
-                {escape(article.source_id)}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 0 4px 0;font-size:13px;color:#4b5563;line-height:1.5;">
-                <span style="color:#9ca3af;">Products</span>&nbsp;
-                {escape(products)}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0;font-size:13px;color:#4b5563;line-height:1.5;">
-                <span style="color:#9ca3af;">Authors</span>&nbsp;
-                {escape(authors)}
-              </td>
-            </tr>
-          </table>
-          <div style="padding:12px 14px;background:#f9fafb;border-left:3px solid #e5e7eb;
-                      font-size:13px;line-height:1.6;color:#374151;">
-            {escape(abstract)}
-          </div>
-          <div style="margin-top:14px;">
-            <a href="{escape(pubmed_link, quote=True)}"
-               style="display:inline-block;padding:8px 14px;background:#c8102e;color:#ffffff;
-                      font-size:12px;font-weight:700;text-decoration:none;border-radius:4px;">
-              View on PubMed
             </a>
           </div>
         </td>
       </tr>
+      <tr>
+        <td style="padding:0 0 12px 0;">{chips}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 10px 0;font-size:13px;color:#555555;line-height:1.55;
+                   font-family:Arial,Helvetica,sans-serif;">
+          {escape(article.journal or "Unknown journal")}
+          &nbsp;·&nbsp; {_fmt_date(article.publication_date)}
+          &nbsp;·&nbsp; PMID {escape(article.source_id)}
+          <br/>
+          Products: {escape(products)}
+          <br/>
+          Authors: {escape(authors)}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 12px 0;font-size:14px;line-height:1.6;color:#333333;
+                   font-family:Arial,Helvetica,sans-serif;">
+          {escape(abstract)}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0;">
+          <a href="{escape(pubmed_link, quote=True)}"
+             style="color:#c8102e;font-size:14px;font-weight:700;text-decoration:none;
+                    font-family:Arial,Helvetica,sans-serif;">
+            View on PubMed →
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 0 0 0;border-bottom:1px solid #e6e6e6;font-size:0;line-height:0;">
+          &nbsp;
+        </td>
+      </tr>
     </table>
+    """.strip()
+
+
+def _jj_news_masthead_html(
+    *,
+    issue_title: str,
+    coverage_line: str,
+    tagline: str,
+    owner: str,
+) -> str:
+    """J&J News masthead: cropped red ``J&J`` bar + red ``News`` label.
+
+    Matches the internal All-Employee News lockup (red banner, white serif
+    J&J cropped top/bottom, sans-serif News underneath).
+    """
+    return f"""
+          <tr>
+            <td style="padding:28px 32px 8px 32px;background:#ffffff;">
+              <!-- J&J News lockup -->
+              <table role="presentation" cellpadding="0" cellspacing="0"
+                     style="border-collapse:collapse;margin:0 0 22px 0;">
+                <tr>
+                  <td style="background:#c8102e;padding:0 18px;height:52px;
+                             overflow:hidden;vertical-align:middle;">
+                    <div style="font-family:Georgia,'Times New Roman',Times,serif;
+                                font-size:64px;font-weight:700;line-height:52px;
+                                color:#ffffff;letter-spacing:-0.02em;
+                                mso-line-height-rule:exactly;">
+                      J&amp;J
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0 0 2px;">
+                    <div style="font-family:Arial,Helvetica,sans-serif;
+                                font-size:28px;font-weight:700;line-height:1.1;
+                                color:#c8102e;letter-spacing:-0.01em;">
+                      News
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <div style="font-family:Arial,Helvetica,sans-serif;
+                          font-size:12px;font-weight:700;letter-spacing:0.14em;
+                          text-transform:uppercase;color:#c8102e;margin:0 0 8px 0;">
+                Competitive Intelligence
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;
+                          font-size:26px;font-weight:700;line-height:1.25;
+                          color:#1a1a1a;margin:0 0 10px 0;">
+                {escape(issue_title)}
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;
+                          font-size:14px;color:#555555;line-height:1.5;margin:0 0 6px 0;">
+                {escape(tagline)}
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;
+                          font-size:13px;color:#333333;line-height:1.5;">
+                {escape(coverage_line)}
+                &nbsp;·&nbsp; {escape(owner)}
+              </div>
+            </td>
+          </tr>
     """.strip()
 
 
@@ -454,8 +515,16 @@ def build_basic_html_report(
     lookback_days: int = 7,
     period_start: date | None = None,
     period_end: date | None = None,
+    playbook: dict | None = None,
 ) -> str:
-    """Render a basic HTML digest (no LLM summaries)."""
+    """Render a J&J-styled HTML digest (no LLM summaries)."""
+    from ep_monitor import playbook as pb
+
+    book = playbook
+    brand = pb.product_name(book)
+    tag = pb.tagline(book)
+    owner = str((book or pb.load_playbook()).get("meta", {}).get("owner") or "Biosense Webster")
+
     report_day = report_date or date.today()
     end = period_end or report_day
     days = max(int(lookback_days), 1)
@@ -464,7 +533,6 @@ def build_basic_html_report(
     day_word = "day" if days == 1 else "days"
     total_found = total_found if total_found > 0 else len(articles)
 
-    # Sort: competitor-tagged first, then by date/title
     ordered = sorted(
         articles,
         key=lambda a: (
@@ -488,7 +556,8 @@ def build_basic_html_report(
         )
     else:
         papers_html = (
-            "<p style='padding:16px 0;color:#6b7280;font-size:14px;'>"
+            "<p style='padding:16px 0;color:#666666;font-size:14px;"
+            "font-family:Arial,Helvetica,sans-serif;'>"
             "No new PubMed articles found for this period."
             "</p>"
         )
@@ -504,106 +573,76 @@ def build_basic_html_report(
 
     chart_uris = charts_as_data_uris(ordered) if ordered else {}
     charts_html = _visual_overview_html(chart_uris)
+    coverage_line = f"Coverage: {period_label} ({days} {day_word})"
+    masthead = _jj_news_masthead_html(
+        issue_title="EP PubMed Digest",
+        coverage_line=coverage_line,
+        tagline=tag,
+        owner=owner,
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>J&amp;J EP Monitor — EP PubMed Digest ({escape(period_label)})</title>
+  <title>{escape(brand)} — EP PubMed Digest ({escape(period_label)})</title>
 </head>
-<body style="margin:0;padding:0;background:#e8ebf0;
-             font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#f2f2f2;
+             font-family:Arial,Helvetica,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-         style="background:#e8ebf0;">
+         style="background:#f2f2f2;">
     <tr>
-      <td align="center" style="padding:28px 12px;">
+      <td align="center" style="padding:24px 12px;">
         <table role="presentation" width="680" cellpadding="0" cellspacing="0"
-               style="max-width:680px;width:100%;border-collapse:collapse;">
+               style="max-width:680px;width:100%;border-collapse:collapse;
+                      background:#ffffff;">
 
-          <!-- Header -->
-          <tr>
-            <td style="padding:0;background:#141414;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border-collapse:collapse;">
-                <tr>
-                  <td style="height:4px;background:#c8102e;font-size:0;line-height:0;">
-                    &nbsp;
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:30px 28px 26px 28px;color:#ffffff;">
-                    <div style="font-size:12px;font-weight:700;letter-spacing:0.16em;
-                                text-transform:uppercase;color:#c8102e;">
-                      J&amp;J EP Monitor &nbsp;·&nbsp; Biosense Webster
-                    </div>
-                    <div style="font-size:28px;font-weight:700;margin-top:12px;
-                                line-height:1.2;letter-spacing:-0.02em;">
-                      EP PubMed Digest
-                    </div>
-                    <div style="margin-top:14px;display:inline-block;padding:8px 12px;
-                                background:#2a2a2a;font-size:13px;font-weight:600;
-                                color:#f3f4f6;line-height:1.4;">
-                      Coverage window &nbsp;|&nbsp; {escape(period_label)}
-                      &nbsp;({days} {day_word})
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          {masthead}
 
-          <!-- What am I reading? -->
+          <!-- Lead / what this is -->
           <tr>
-            <td style="padding:22px 28px;background:#fff8f8;border-bottom:1px solid #f0d4d8;">
-              <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
-                          text-transform:uppercase;color:#c8102e;margin:0 0 8px 0;">
-                What this email is
+            <td style="padding:8px 32px 26px 32px;background:#ffffff;border-bottom:1px solid #ececec;">
+              <div style="font-size:20px;font-weight:700;color:#1a1a1a;line-height:1.35;
+                          margin:0 0 10px 0;">
+                New PubMed publications from the last {days} {day_word}
               </div>
-              <p style="margin:0;font-size:14px;line-height:1.65;color:#1f2937;">
-                A competitive-intelligence digest of
-                <strong>new PubMed publications from the last {days} {day_word}</strong>
-                ({escape(period_label)}) in cardiac electrophysiology.
-                Papers mention competitor companies or devices
-                (Boston Scientific, Medtronic, Abbott, MicroPort, AtriCure)
-                related to ablation, mapping, and arrhythmia care.
-                Each entry includes title, journal, date, matched company/product,
-                authors, and an abstract preview — with a link to PubMed.
+              <p style="margin:0;font-size:14px;line-height:1.65;color:#444444;">
+                This digest highlights cardiac electrophysiology papers that mention
+                competitor companies or devices. Use it for SMA scientific engagement
+                and strategic planning. Each entry includes title, journal, date, company
+                / product match, authors, abstract preview, and a PubMed link.
               </p>
             </td>
           </tr>
 
-          <!-- Stats strip -->
+          <!-- Stats -->
           <tr>
-            <td style="padding:0;background:#ffffff;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border-collapse:collapse;border-bottom:1px solid #e5e7eb;">
+            <td style="padding:0;background:#ffffff;border-bottom:1px solid #ececec;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="33%" style="padding:18px 16px 18px 28px;vertical-align:top;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;
-                                text-transform:uppercase;color:#9ca3af;">In this email</div>
-                    <div style="font-size:22px;font-weight:700;color:#111827;margin-top:4px;">
+                  <td width="33%" style="padding:18px 16px 18px 32px;vertical-align:top;">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;
+                                text-transform:uppercase;color:#888888;">In this email</div>
+                    <div style="font-size:26px;font-weight:700;color:#1a1a1a;margin-top:4px;">
                       {len(ordered)}
                     </div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">new papers</div>
                   </td>
                   <td width="33%" style="padding:18px 16px;vertical-align:top;
-                                         border-left:1px solid #e5e7eb;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;
-                                text-transform:uppercase;color:#9ca3af;">Competitor-tagged</div>
-                    <div style="font-size:22px;font-weight:700;color:#111827;margin-top:4px;">
+                                         border-left:1px solid #ececec;">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;
+                                text-transform:uppercase;color:#888888;">Competitor-tagged</div>
+                    <div style="font-size:26px;font-weight:700;color:#1a1a1a;margin-top:4px;">
                       {attributed}
                     </div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">matched to a company</div>
                   </td>
-                  <td width="34%" style="padding:18px 28px 18px 16px;vertical-align:top;
-                                         border-left:1px solid #e5e7eb;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;
-                                text-transform:uppercase;color:#9ca3af;">PubMed hits</div>
-                    <div style="font-size:22px;font-weight:700;color:#111827;margin-top:4px;">
+                  <td width="34%" style="padding:18px 32px 18px 16px;vertical-align:top;
+                                         border-left:1px solid #ececec;">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;
+                                text-transform:uppercase;color:#888888;">PubMed hits</div>
+                    <div style="font-size:26px;font-weight:700;color:#1a1a1a;margin-top:4px;">
                       {total_found}
                     </div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">in search window</div>
                   </td>
                 </tr>
               </table>
@@ -612,33 +651,37 @@ def build_basic_html_report(
 
           {charts_html}
 
-          <!-- Papers -->
+          <!-- Articles -->
           <tr>
-            <td style="padding:24px 28px 8px 28px;background:#ffffff;">
-              <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
-                          text-transform:uppercase;color:#9ca3af;margin:0 0 6px 0;">
-                Articles published {escape(period_label)}
+            <td style="padding:28px 32px 8px 32px;background:#ffffff;">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
+                          text-transform:uppercase;color:#c8102e;margin:0 0 6px 0;">
+                Articles
               </div>
-              <div style="font-size:13px;color:#6b7280;margin:0 0 16px 0;line-height:1.5;">
+              <div style="font-size:20px;font-weight:700;color:#1a1a1a;margin:0 0 6px 0;">
+                Published {escape(period_label)}
+              </div>
+              <div style="font-size:13px;color:#666666;margin:0 0 22px 0;">
                 Sorted with competitor-attributed papers first.
               </div>
               {papers_html}
             </td>
           </tr>
 
-          <!-- Footer stats -->
+          <!-- Footer -->
           <tr>
-            <td style="padding:8px 28px 28px 28px;background:#ffffff;">
-              <div style="padding-top:20px;border-top:1px solid #e5e7eb;">
-                <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
-                            text-transform:uppercase;color:#9ca3af;margin:0 0 10px 0;">
-                  Company mix in this digest
+            <td style="padding:8px 32px 32px 32px;background:#ffffff;">
+              <div style="padding-top:18px;border-top:1px solid #ececec;">
+                <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
+                            text-transform:uppercase;color:#c8102e;margin:0 0 8px 0;">
+                  Company mix
                 </div>
-                <div style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 14px 0;">
+                <div style="font-size:13px;color:#555555;line-height:1.6;margin:0 0 16px 0;">
                   {dist_bits}
                 </div>
-                <p style="margin:22px 0 0 0;font-size:11px;color:#9ca3af;line-height:1.5;">
-                  J&amp;J EP Monitor · Coverage {escape(period_label)} · Generated {escape(generated_at)}
+                <p style="margin:0;font-size:11px;color:#999999;line-height:1.5;">
+                  {escape(brand)} · {escape(owner)} · Coverage {escape(period_label)}
+                  · Generated {escape(generated_at)}
                 </p>
               </div>
             </td>
@@ -661,11 +704,16 @@ def send_email(
 ) -> bool:
     """Send the report via SMTP using BCC so recipients cannot see each other.
 
-    The visible ``To`` header is set to the sender (or a generic undisclosed
-    label). Real addresses are only in the SMTP envelope (and a ``Bcc``
-    header that is stripped before delivery).
+    The visible ``To`` header is set to the sender. Real addresses are only
+    in the SMTP envelope (blind copy). Recipients default to playbook, then
+    ``EMAIL_TO`` in ``.env``.
     """
-    to_addrs = recipients if recipients is not None else list(config.EMAIL_TO)
+    from ep_monitor import playbook as pb
+
+    if recipients is not None:
+        to_addrs = list(recipients)
+    else:
+        to_addrs = pb.recipient_emails()
     from_addr = (config.EMAIL_FROM or config.SMTP_USER or "").strip()
     user = (config.SMTP_USER or "").strip()
     password = (config.SMTP_PASSWORD or "").strip()
@@ -673,7 +721,7 @@ def send_email(
     port = int(config.SMTP_PORT)
 
     if not to_addrs:
-        logger.error("EMAIL_TO is empty; cannot send report")
+        logger.error("No recipients in playbook or EMAIL_TO; cannot send report")
         return False
     if not from_addr:
         logger.error("EMAIL_FROM / SMTP_USER is empty; cannot send report")

@@ -51,11 +51,33 @@ CREATE TABLE IF NOT EXISTS summaries (
         REFERENCES processed_articles (source, source_id)
 );
 
+CREATE TABLE IF NOT EXISTS articles (
+    source                   TEXT NOT NULL,
+    source_id                TEXT NOT NULL,
+    title                    TEXT NOT NULL,
+    abstract                 TEXT,
+    journal                  TEXT,
+    publication_date         TEXT,
+    authors_json             TEXT NOT NULL DEFAULT '[]',
+    url                      TEXT,
+    matched_companies_json   TEXT NOT NULL DEFAULT '[]',
+    matched_products_json    TEXT NOT NULL DEFAULT '[]',
+    domain_id                TEXT,
+    fetched_at               TEXT NOT NULL,
+    PRIMARY KEY (source, source_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_summaries_score
     ON summaries (importance_score DESC);
 
 CREATE INDEX IF NOT EXISTS idx_summaries_company
     ON summaries (company);
+
+CREATE INDEX IF NOT EXISTS idx_articles_fetched
+    ON articles (fetched_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_articles_domain
+    ON articles (domain_id);
 """
 
 
@@ -279,6 +301,105 @@ class ArticleDatabase(AbstractContextManager["ArticleDatabase"]):
                 "SELECT COUNT(*) AS n FROM processed_articles WHERE source = ?",
                 (source,),
             ).fetchone()
+        return int(row["n"]) if row else 0
+
+    def upsert_article(
+        self,
+        article: Article,
+        *,
+        domain_id: str | None = None,
+    ) -> None:
+        """Insert or update a full PubMed article row for the library."""
+        self._conn.execute(
+            """
+            INSERT INTO articles (
+                source, source_id, title, abstract, journal, publication_date,
+                authors_json, url, matched_companies_json, matched_products_json,
+                domain_id, fetched_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(source, source_id) DO UPDATE SET
+                title = excluded.title,
+                abstract = excluded.abstract,
+                journal = excluded.journal,
+                publication_date = excluded.publication_date,
+                authors_json = excluded.authors_json,
+                url = excluded.url,
+                matched_companies_json = excluded.matched_companies_json,
+                matched_products_json = excluded.matched_products_json,
+                domain_id = COALESCE(excluded.domain_id, articles.domain_id),
+                fetched_at = excluded.fetched_at
+            """,
+            (
+                article.source,
+                article.source_id,
+                article.title,
+                article.abstract,
+                article.journal,
+                _date_to_iso(article.publication_date),
+                json.dumps(article.authors or [], ensure_ascii=False),
+                article.url,
+                json.dumps(article.matched_companies or [], ensure_ascii=False),
+                json.dumps(article.matched_products or [], ensure_ascii=False),
+                domain_id,
+                _utc_now_iso(),
+            ),
+        )
+        self._conn.commit()
+
+    def upsert_articles(
+        self,
+        articles: list[Article],
+        *,
+        domain_id: str | None = None,
+    ) -> int:
+        """Upsert a batch of articles. Returns count written."""
+        for article in articles:
+            self.upsert_article(article, domain_id=domain_id)
+        logger.info("Upserted %d article(s) into library", len(articles))
+        return len(articles)
+
+    def list_articles(
+        self,
+        *,
+        limit: int = 500,
+        domain_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return recent library articles as plain dicts (for Excel / UI)."""
+        params: list[Any] = []
+        sql = "SELECT * FROM articles"
+        if domain_id:
+            sql += " WHERE domain_id = ?"
+            params.append(domain_id)
+        sql += " ORDER BY fetched_at DESC, publication_date DESC LIMIT ?"
+        params.append(int(limit))
+
+        rows: list[dict[str, Any]] = []
+        for row in self._conn.execute(sql, params):
+            rows.append(
+                {
+                    "source": row["source"],
+                    "source_id": row["source_id"],
+                    "pmid": row["source_id"],
+                    "title": row["title"],
+                    "abstract": row["abstract"] or "",
+                    "journal": row["journal"] or "",
+                    "publication_date": row["publication_date"] or "",
+                    "authors": ", ".join(json.loads(row["authors_json"] or "[]")),
+                    "url": row["url"] or "",
+                    "matched_companies": ", ".join(
+                        json.loads(row["matched_companies_json"] or "[]")
+                    ),
+                    "matched_products": ", ".join(
+                        json.loads(row["matched_products_json"] or "[]")
+                    ),
+                    "domain_id": row["domain_id"] or "",
+                    "fetched_at": row["fetched_at"] or "",
+                }
+            )
+        return rows
+
+    def count_articles(self) -> int:
+        row = self._conn.execute("SELECT COUNT(*) AS n FROM articles").fetchone()
         return int(row["n"]) if row else 0
 
     def close(self) -> None:

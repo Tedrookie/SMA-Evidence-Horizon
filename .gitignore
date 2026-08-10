@@ -12,5 +12,8 @@ __pycache__/
 ep_monitor/data/*.db
 ep_monitor/data/*.log
 ep_monitor/reports/*.html
+ep_monitor/exports/*.xlsx
 !ep_monitor/data/.gitkeep
+!ep_monitor/data/playbook.yaml
 !ep_monitor/reports/.gitkeep
+!ep_monitor/exports/.gitkeep
