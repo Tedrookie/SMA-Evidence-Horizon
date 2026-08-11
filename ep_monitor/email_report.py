@@ -348,11 +348,10 @@ def _visual_overview_html(chart_uris: dict[str, str]) -> str:
     """.strip()
 
 
-def _truncate(text: str, limit: int = 500) -> str:
+def _full_abstract(text: str) -> str:
+    """Normalize whitespace but keep the full abstract (no truncation)."""
     cleaned = " ".join((text or "").split())
-    if len(cleaned) <= limit:
-        return cleaned
-    return cleaned[: limit - 1].rstrip() + "…"
+    return cleaned or "No abstract available."
 
 
 def _company_chips(companies: list[str]) -> str:
@@ -379,7 +378,7 @@ def _basic_paper_section(article: Article, index: int) -> str:
     if article.authors and len(article.authors) > 8:
         authors += f" (+{len(article.authors) - 8} more)"
     pubmed_link = article.url or f"https://pubmed.ncbi.nlm.nih.gov/{article.source_id}/"
-    abstract = _truncate(article.abstract, 420) or "No abstract available."
+    abstract = _full_abstract(article.abstract)
     chips = _company_chips(article.matched_companies)
 
     return f"""
@@ -421,7 +420,16 @@ def _basic_paper_section(article: Article, index: int) -> str:
         </td>
       </tr>
       <tr>
-        <td style="padding:0 0 12px 0;font-size:14px;line-height:1.6;color:#333333;
+        <td style="padding:0 0 6px 0;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
+                      text-transform:uppercase;color:#888888;
+                      font-family:Arial,Helvetica,sans-serif;">
+            Abstract
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 12px 0;font-size:14px;line-height:1.65;color:#333333;
                    font-family:Arial,Helvetica,sans-serif;">
           {escape(abstract)}
         </td>
@@ -431,7 +439,7 @@ def _basic_paper_section(article: Article, index: int) -> str:
           <a href="{escape(pubmed_link, quote=True)}"
              style="color:#c8102e;font-size:14px;font-weight:700;text-decoration:none;
                     font-family:Arial,Helvetica,sans-serif;">
-            View on PubMed →
+            View full manuscript on PubMed →
           </a>
         </td>
       </tr>
@@ -611,7 +619,8 @@ def build_basic_html_report(
                 This digest highlights cardiac electrophysiology papers that mention
                 competitor companies or devices. Use it for SMA scientific engagement
                 and strategic planning. Each entry includes title, journal, date, company
-                / product match, authors, abstract preview, and a PubMed link.
+                / product match, authors, the full abstract, and a PubMed link to the
+                manuscript.
               </p>
             </td>
           </tr>
