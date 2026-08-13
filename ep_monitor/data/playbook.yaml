@@ -1,7 +1,7 @@
 meta:
-  product_name: J&J EP Monitor
+  product_name: SMA Horizon
   owner: Strategic Medical Affairs / JJMC
-  tagline: Moving healthcare forward, together.
+  tagline: Turning medical evidence into strategic clarity.
 schedule:
   mode: weekly
   weekday: monday
@@ -13,19 +13,17 @@ recipients:
   email: zhangchuhan1210@126.com
 domains:
 - id: ep
-  name: Cardiac Electrophysiology
+  name: Electrophysiology (EP)
   enabled: true
   technologies:
   - Pulsed Field Ablation
   - Radiofrequency Ablation
   - Cryoballoon Ablation
   - Cryoablation
-  - Laser Ablation
   - Catheter Ablation
   diseases:
   - Atrial Fibrillation
   - Persistent Atrial Fibrillation
-  - Persistent AF
   - Ventricular Tachycardia
   - Supraventricular Tachycardia
   ep_topics:
@@ -33,60 +31,98 @@ domains:
   - Electroanatomic Mapping
   - 3D Mapping
   - Contact Force
-  - High Density Mapping
-  - Intracardiac Echocardiography
   companies:
   - name: Boston Scientific
-    products:
-    - FARAPULSE
-    - Farapulse
-    - Farawave
-    - Farastar
-    - FARAWAVE
-    - FARASTAR
-    - VersaCross
+    products: []
   - name: Medtronic
-    products:
-    - PulseSelect
-    - Affera
-    - Sphere-9
-    - Sphere 9
-    - Arctic Front
-    - DiamondTemp
-    - PVAC
+    products: []
   - name: Abbott
-    products:
-    - EnSite X
-    - EnSite
-    - Volt PFA
-    - Volt
-    - TactiFlex
-    - TactiCath
-    - Advisor HD Grid
-    - Ampere
+    products: []
   - name: MicroPort
-    products:
-    - FireMagic
-    - Columbus
-    - EasyFinder
+    products: []
   - name: AtriCure
-    products:
-    - AtriClip
-    - Isolator Synergy
-    - EPi-Sense
-    - cryoICE
+    products: []
   own_portfolio:
   - name: Johnson & Johnson
     products:
     - Biosense Webster
     - VARIPULSE
-    - Varipulse
     - CARTO
-    - QDOT MICRO
     - QDOT
     - THERMOCOOL
-    - ThermoCool
     - OPTRELL
     - Octaray
-    - OCTARAY
-    - NuVision
+- id: nv
+  name: Neurovascular (NV)
+  enabled: true
+  technologies:
+  - Mechanical Thrombectomy
+  - Endovascular
+  - Flow Diverter
+  - Coil Embolization
+  - Stent Retriever
+  diseases:
+  - Ischemic Stroke
+  - Acute Ischemic Stroke
+  - Intracranial Aneurysm
+  - Cerebral Aneurysm
+  - Large Vessel Occlusion
+  ep_topics:
+  - Neurovascular
+  - Interventional Neuroradiology
+  - Neurointervention
+  companies:
+  - name: Medtronic
+    products: []
+  - name: Stryker
+    products: []
+  - name: Penumbra
+    products: []
+  - name: MicroVention
+    products: []
+  - name: Terumo
+    products: []
+  own_portfolio:
+  - name: Johnson & Johnson
+    products:
+    - Cerenovus
+    - EMBOTRAP
+    - CERENOVUS
+- id: surgery
+  name: Surgery
+  enabled: true
+  technologies:
+  - Robotic Surgery
+  - Robotic-Assisted Surgery
+  - Laparoscopic Surgery
+  - Surgical Stapling
+  - Energy Device
+  - Minimally Invasive Surgery
+  diseases:
+  - Colorectal Surgery
+  - Bariatric Surgery
+  - Hernia Repair
+  - Soft Tissue Surgery
+  ep_topics:
+  - Surgical Oncology
+  - General Surgery
+  - Operating Room
+  companies:
+  - name: Intuitive Surgical
+    products: []
+  - name: Intuitive
+    products: []
+  - name: Medtronic
+    products: []
+  - name: Olympus
+    products: []
+  - name: Stryker
+    products: []
+  own_portfolio:
+  - name: Johnson & Johnson
+    products:
+    - Ethicon
+    - OTTAVA
+    - MONARCH
+    - Echelon
+    - Harmonic

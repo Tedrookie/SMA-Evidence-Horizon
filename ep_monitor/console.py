@@ -44,7 +44,7 @@ def _render_app() -> None:
     from ep_monitor.pubmed_search import search_pubmed
 
     st.set_page_config(
-        page_title="J&J EP Monitor · App Manual",
+        page_title="SMA Horizon · App Manual",
         layout="wide",
     )
 
@@ -70,9 +70,9 @@ def _render_app() -> None:
     st.markdown(
         """
         <div class="jj-banner">
-          <div class="brand">J&amp;J EP Monitor</div>
+          <div class="brand">SMA Horizon</div>
           <h1>App Manual Console</h1>
-          <div>Strategic Medical Affairs · JJMC — edit surveillance scope, fetch, save, email</div>
+          <div>Turning medical evidence into strategic clarity. · JJMC Medical Affairs</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -121,8 +121,8 @@ def _render_app() -> None:
                     a.source = _BASIC_SOURCE
                 match_articles(
                     arts,
-                    company_map=pb.company_product_map(book, include_own=False),
-                    competitors_only=True,
+                    company_map=pb.company_product_map(book, include_own=True),
+                    competitors_only=False,
                 )
                 st.session_state.preview_articles = arts
             st.success(f"Fetched {len(arts)} article(s).")
@@ -170,12 +170,42 @@ def _render_app() -> None:
 
     # ----------------------------------------------------------- Playbook
     with tab_playbook:
-        st.subheader("Central surveillance playbook")
+        from ep_monitor.excel_playbook import (
+            ensure_template,
+            playbook_from_excel,
+            write_playbook_excel,
+        )
+
+        st.subheader("Playbook — Excel upload (recommended for MA)")
+        st.caption(
+            "Edit domains, keywords, and competitor company names in Excel, then upload. "
+            "Product names are optional."
+        )
+        template_path = ensure_template()
+        st.download_button(
+            "Download starter Excel playbook",
+            data=template_path.read_bytes(),
+            file_name="sma_horizon_playbook_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        uploaded = st.file_uploader("Upload edited playbook Excel", type=["xlsx"])
+        if uploaded is not None and st.button("Apply uploaded Excel to playbook", type="primary"):
+            try:
+                new_book = playbook_from_excel(uploaded.getvalue())
+                pb.save_playbook(new_book)
+                write_playbook_excel(new_book, template_path)
+                st.success("Playbook updated from Excel. Reloading…")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Could not import Excel: {exc}")
+
+        st.divider()
+        st.subheader("Playbook editor (advanced)")
         st.caption(f"File: `{pb.PLAYBOOK_PATH}`")
 
         meta = book.setdefault("meta", {})
         sched = book.setdefault("schedule", {})
-        meta["product_name"] = st.text_input("Product name", meta.get("product_name", "J&J EP Monitor"))
+        meta["product_name"] = st.text_input("Product name", meta.get("product_name", "SMA Horizon"))
         meta["owner"] = st.text_input("Owner", meta.get("owner", "Strategic Medical Affairs / JJMC"))
         meta["tagline"] = st.text_input(
             "Tagline", meta.get("tagline", "Moving healthcare forward, together.")

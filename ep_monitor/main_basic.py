@@ -66,11 +66,11 @@ def run_basic_pipeline(
     days = lookback_days if lookback_days is not None else pb.lookback_days(book)
     domain_ids = [d.get("id", "ep") for d in pb.enabled_domains(book)]
     domain_id = ",".join(str(x) for x in domain_ids) if domain_ids else "ep"
-    cmap = pb.company_product_map(book, include_own=False)
+    cmap = pb.company_product_map(book, include_own=True)
 
     report_day = date.today()
     logger.info("=" * 60)
-    logger.info("%s — EP PubMed Digest — %s", pb.product_name(book), report_day.isoformat())
+    logger.info("%s — PubMed Digest — %s", pb.product_name(book), report_day.isoformat())
     logger.info(
         "lookback_days=%s dry_run=%s send_email=%s force=%s domains=%s",
         days,
@@ -103,10 +103,11 @@ def run_basic_pipeline(
             logger.info("Nothing new to report. Exiting successfully.")
             return 0
 
-        match_articles(new_articles, company_map=cmap, competitors_only=True)
+        # Include J&J + competitors in attribution
+        match_articles(new_articles, company_map=cmap, competitors_only=False)
         attributed = sum(1 for a in new_articles if a.matched_companies)
         logger.info(
-            "Attributed %d / %d article(s) to competitors",
+            "Attributed %d / %d article(s) to companies",
             attributed,
             len(new_articles),
         )
@@ -122,7 +123,6 @@ def run_basic_pipeline(
             logger.info("Dry-run complete; nothing emailed or marked processed.")
             return 0
 
-        # Persist full articles for later LLM / Excel handoff
         library_db.upsert_articles(new_articles, domain_id=domain_id)
         excel_path = export_articles_to_excel(
             articles_to_rows(new_articles, domain_id=domain_id),
@@ -141,7 +141,7 @@ def run_basic_pipeline(
             html,
             config.REPORTS_DIR,
             report_date=report_day,
-            prefix="ep_basic_digest",
+            prefix="sma_horizon_digest",
         )
         logger.info("HTML report saved to %s", report_path)
 
@@ -157,7 +157,11 @@ def run_basic_pipeline(
             if not ok:
                 logger.error("Email send failed; report is still on disk.")
                 return 1
-            logger.info("Email sent (%d papers) to %d recipient(s)", len(new_articles), len(recipients or config.EMAIL_TO))
+            logger.info(
+                "Email sent (%d papers) to %d recipient(s)",
+                len(new_articles),
+                len(recipients or config.EMAIL_TO),
+            )
         else:
             logger.info("--no-email set; skipped SMTP send.")
 

@@ -14,7 +14,6 @@ from typing import Optional
 
 from ep_monitor import config
 from ep_monitor.models.article import Article, ArticleSummary
-from ep_monitor.report_charts import charts_as_data_uris
 
 logger = logging.getLogger(__name__)
 
@@ -266,11 +265,15 @@ def basic_subject(
     period_end: date | None = None,
     playbook: dict | None = None,
 ) -> str:
-    """Subject line for the basic PubMed listing report."""
+    """Subject line for the SMA Horizon digest."""
+    from ep_monitor import playbook as pb
+
     end = period_end or report_date or date.today()
     start = period_start or (end - timedelta(days=max(lookback_days, 1) - 1))
     window = _fmt_period(start, end)
-    return f"J&J News: EP PubMed Digest — {window} ({article_count} papers)"
+    name = pb.product_name(playbook)
+    label = name if name.casefold().startswith("sma ") else f"SMA {name}"
+    return f"J&J News: {label} — {window} ({article_count} papers)"
 
 
 
@@ -354,32 +357,65 @@ def _full_abstract(text: str) -> str:
     return cleaned or "No abstract available."
 
 
-def _company_chips(companies: list[str]) -> str:
-    if not companies:
-        return (
-            '<span style="display:inline-block;padding:4px 10px;margin:0 6px 6px 0;'
-            "background:#f0f0f0;color:#666666;font-size:11px;font-weight:700;"
-            'font-family:Arial,Helvetica,sans-serif;">Unmatched</span>'
-        )
-    chips = []
-    for name in companies:
-        chips.append(
-            f'<span style="display:inline-block;padding:4px 10px;margin:0 6px 6px 0;'
-            f"background:#c8102e;color:#ffffff;font-size:11px;font-weight:700;"
-            f'font-family:Arial,Helvetica,sans-serif;">{escape(name)}</span>'
-        )
-    return "".join(chips)
+def _is_jj_company(name: str) -> bool:
+    n = (name or "").casefold()
+    markers = (
+        "johnson",
+        "j&j",
+        "jnj",
+        "biosense",
+        "ethicon",
+        "cerenovus",
+        "ottava",
+        "monarch",
+    )
+    return any(m in n for m in markers)
 
 
-def _basic_paper_section(article: Article, index: int) -> str:
-    """J&J All-Employee News–style article card."""
-    products = ", ".join(article.matched_products) if article.matched_products else "—"
-    authors = ", ".join(article.authors[:8]) if article.authors else "Unknown"
-    if article.authors and len(article.authors) > 8:
-        authors += f" (+{len(article.authors) - 8} more)"
+def _format_authors_line(article: Article, *, max_authors: int = 5) -> str:
+    """3–5 authors + et al., plus first-author institute when available."""
+    authors = article.authors or []
+    if not authors:
+        author_bit = "Unknown"
+    elif len(authors) <= max_authors:
+        author_bit = "; ".join(authors)
+    else:
+        keep = min(max(3, max_authors), len(authors))
+        author_bit = "; ".join(authors[:keep]) + "; et al."
+
+    aff = ""
+    meta = article.raw_metadata or {}
+    raw_aff = meta.get("first_author_affiliation") or ""
+    if not raw_aff:
+        affs = meta.get("affiliations") or []
+        if isinstance(affs, list) and affs:
+            raw_aff = str(affs[0])
+    if raw_aff:
+        # Keep institute readable — first clause before country/email noise
+        aff = " ".join(str(raw_aff).split())
+        if len(aff) > 160:
+            aff = aff[:159].rstrip() + "…"
+    if aff:
+        return f"{author_bit}  ·  First author institute: {aff}"
+    return author_bit
+
+
+def _company_products_line(article: Article) -> str:
+    companies = article.matched_companies or []
+    products = article.matched_products or []
+    if not companies and not products:
+        return "Not attributed to a listed company/product in this run"
+    company_bit = ", ".join(companies) if companies else "—"
+    product_bit = ", ".join(products) if products else "—"
+    return f"Companies: {company_bit}  ·  Products: {product_bit}"
+
+
+def _basic_paper_section(article: Article, index: int, total: int) -> str:
+    """SMA Horizon article card (Paper i/N)."""
     pubmed_link = article.url or f"https://pubmed.ncbi.nlm.nih.gov/{article.source_id}/"
     abstract = _full_abstract(article.abstract)
-    chips = _company_chips(article.matched_companies)
+    authors_line = _format_authors_line(article)
+    company_line = _company_products_line(article)
 
     return f"""
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -389,7 +425,7 @@ def _basic_paper_section(article: Article, index: int) -> str:
           <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;
                       text-transform:uppercase;color:#c8102e;
                       font-family:Arial,Helvetica,sans-serif;">
-            Competitive Intelligence · Paper {index}
+            Paper {index}/{total}
           </div>
         </td>
       </tr>
@@ -405,18 +441,15 @@ def _basic_paper_section(article: Article, index: int) -> str:
         </td>
       </tr>
       <tr>
-        <td style="padding:0 0 12px 0;">{chips}</td>
-      </tr>
-      <tr>
         <td style="padding:0 0 10px 0;font-size:13px;color:#555555;line-height:1.55;
                    font-family:Arial,Helvetica,sans-serif;">
           {escape(article.journal or "Unknown journal")}
           &nbsp;·&nbsp; {_fmt_date(article.publication_date)}
           &nbsp;·&nbsp; PMID {escape(article.source_id)}
           <br/>
-          Products: {escape(products)}
+          {escape(authors_line)}
           <br/>
-          Authors: {escape(authors)}
+          {escape(company_line)}
         </td>
       </tr>
       <tr>
@@ -459,15 +492,10 @@ def _jj_news_masthead_html(
     tagline: str,
     owner: str,
 ) -> str:
-    """J&J News masthead: cropped red ``J&J`` bar + red ``News`` label.
-
-    Matches the internal All-Employee News lockup (red banner, white serif
-    J&J cropped top/bottom, sans-serif News underneath).
-    """
+    """J&J News masthead + SMA Horizon title/slogan."""
     return f"""
           <tr>
             <td style="padding:28px 32px 8px 32px;background:#ffffff;">
-              <!-- J&J News lockup -->
               <table role="presentation" cellpadding="0" cellspacing="0"
                      style="border-collapse:collapse;margin:0 0 22px 0;">
                 <tr>
@@ -492,17 +520,13 @@ def _jj_news_masthead_html(
                 </tr>
               </table>
               <div style="font-family:Arial,Helvetica,sans-serif;
-                          font-size:12px;font-weight:700;letter-spacing:0.14em;
-                          text-transform:uppercase;color:#c8102e;margin:0 0 8px 0;">
-                Competitive Intelligence
-              </div>
-              <div style="font-family:Arial,Helvetica,sans-serif;
                           font-size:26px;font-weight:700;line-height:1.25;
-                          color:#1a1a1a;margin:0 0 10px 0;">
+                          color:#1a1a1a;margin:0 0 8px 0;">
                 {escape(issue_title)}
               </div>
               <div style="font-family:Arial,Helvetica,sans-serif;
-                          font-size:14px;color:#555555;line-height:1.5;margin:0 0 6px 0;">
+                          font-size:14px;color:#555555;line-height:1.5;margin:0 0 10px 0;
+                          font-style:italic;">
                 {escape(tagline)}
               </div>
               <div style="font-family:Arial,Helvetica,sans-serif;
@@ -525,13 +549,16 @@ def build_basic_html_report(
     period_end: date | None = None,
     playbook: dict | None = None,
 ) -> str:
-    """Render a J&J-styled HTML digest (no LLM summaries)."""
+    """Render SMA Horizon HTML digest (no charts)."""
     from ep_monitor import playbook as pb
 
-    book = playbook
+    book = playbook if playbook is not None else pb.load_playbook()
     brand = pb.product_name(book)
     tag = pb.tagline(book)
-    owner = str((book or pb.load_playbook()).get("meta", {}).get("owner") or "Biosense Webster")
+    owner = str((book.get("meta") or {}).get("owner") or "Strategic Medical Affairs / JJMC")
+    domain_names = ", ".join(
+        str(d.get("name") or d.get("id")) for d in pb.enabled_domains(book)
+    ) or "Selected domains"
 
     report_day = report_date or date.today()
     end = period_end or report_day
@@ -549,18 +576,22 @@ def build_basic_html_report(
             a.title.casefold(),
         ),
     )
-
-    company_values: list[str] = []
-    for article in ordered:
-        if article.matched_companies:
-            company_values.extend(article.matched_companies)
-        else:
-            company_values.append("Unknown")
-    company_dist = _distribution(company_values)
+    total_papers = len(ordered)
+    jj_count = sum(
+        1
+        for a in ordered
+        if any(_is_jj_company(c) for c in (a.matched_companies or []))
+    )
+    other_count = sum(
+        1
+        for a in ordered
+        if any(not _is_jj_company(c) for c in (a.matched_companies or []))
+    )
 
     if ordered:
         papers_html = "\n".join(
-            _basic_paper_section(a, i) for i, a in enumerate(ordered, start=1)
+            _basic_paper_section(a, i, total_papers)
+            for i, a in enumerate(ordered, start=1)
         )
     else:
         papers_html = (
@@ -571,19 +602,10 @@ def build_basic_html_report(
         )
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    attributed = sum(1 for a in ordered if a.matched_companies)
-
-    top_companies = company_dist[:5]
-    if top_companies:
-        dist_bits = " · ".join(f"{escape(label)} ({count})" for label, count in top_companies)
-    else:
-        dist_bits = "—"
-
-    chart_uris = charts_as_data_uris(ordered) if ordered else {}
-    charts_html = _visual_overview_html(chart_uris)
     coverage_line = f"Coverage: {period_label} ({days} {day_word})"
+    issue_title = brand if brand.casefold().startswith("sma ") else f"SMA {brand}"
     masthead = _jj_news_masthead_html(
-        issue_title="EP PubMed Digest",
+        issue_title=issue_title,
         coverage_line=coverage_line,
         tagline=tag,
         owner=owner,
@@ -594,7 +616,7 @@ def build_basic_html_report(
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{escape(brand)} — EP PubMed Digest ({escape(period_label)})</title>
+  <title>{escape(issue_title)} ({escape(period_label)})</title>
 </head>
 <body style="margin:0;padding:0;background:#f2f2f2;
              font-family:Arial,Helvetica,sans-serif;">
@@ -608,57 +630,22 @@ def build_basic_html_report(
 
           {masthead}
 
-          <!-- Lead / what this is -->
+          <!-- Summary counts only -->
           <tr>
-            <td style="padding:8px 32px 26px 32px;background:#ffffff;border-bottom:1px solid #ececec;">
-              <div style="font-size:20px;font-weight:700;color:#1a1a1a;line-height:1.35;
-                          margin:0 0 10px 0;">
-                New PubMed publications from the last {days} {day_word}
+            <td style="padding:22px 32px;background:#ffffff;border-bottom:1px solid #ececec;">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
+                          text-transform:uppercase;color:#c8102e;margin:0 0 10px 0;">
+                Summary
               </div>
-              <p style="margin:0;font-size:14px;line-height:1.65;color:#444444;">
-                This digest highlights cardiac electrophysiology papers that mention
-                competitor companies or devices. Use it for SMA scientific engagement
-                and strategic planning. Each entry includes title, journal, date, company
-                / product match, authors, the full abstract, and a PubMed link to the
-                manuscript.
-              </p>
+              <div style="font-size:15px;color:#333333;line-height:1.7;">
+                Domains: <strong>{escape(domain_names)}</strong><br/>
+                Papers in this digest: <strong>{total_papers}</strong>
+                &nbsp;(PubMed hits in window: {total_found})<br/>
+                Johnson &amp; Johnson–related: <strong>{jj_count}</strong><br/>
+                Other companies: <strong>{other_count}</strong>
+              </div>
             </td>
           </tr>
-
-          <!-- Stats -->
-          <tr>
-            <td style="padding:0;background:#ffffff;border-bottom:1px solid #ececec;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="33%" style="padding:18px 16px 18px 32px;vertical-align:top;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;
-                                text-transform:uppercase;color:#888888;">In this email</div>
-                    <div style="font-size:26px;font-weight:700;color:#1a1a1a;margin-top:4px;">
-                      {len(ordered)}
-                    </div>
-                  </td>
-                  <td width="33%" style="padding:18px 16px;vertical-align:top;
-                                         border-left:1px solid #ececec;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;
-                                text-transform:uppercase;color:#888888;">Competitor-tagged</div>
-                    <div style="font-size:26px;font-weight:700;color:#1a1a1a;margin-top:4px;">
-                      {attributed}
-                    </div>
-                  </td>
-                  <td width="34%" style="padding:18px 32px 18px 16px;vertical-align:top;
-                                         border-left:1px solid #ececec;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;
-                                text-transform:uppercase;color:#888888;">PubMed hits</div>
-                    <div style="font-size:26px;font-weight:700;color:#1a1a1a;margin-top:4px;">
-                      {total_found}
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          {charts_html}
 
           <!-- Articles -->
           <tr>
@@ -667,11 +654,8 @@ def build_basic_html_report(
                           text-transform:uppercase;color:#c8102e;margin:0 0 6px 0;">
                 Articles
               </div>
-              <div style="font-size:20px;font-weight:700;color:#1a1a1a;margin:0 0 6px 0;">
-                Published {escape(period_label)}
-              </div>
               <div style="font-size:13px;color:#666666;margin:0 0 22px 0;">
-                Sorted with competitor-attributed papers first.
+                Published {escape(period_label)}. Full abstract included; open PubMed for the manuscript.
               </div>
               {papers_html}
             </td>
@@ -681,15 +665,8 @@ def build_basic_html_report(
           <tr>
             <td style="padding:8px 32px 32px 32px;background:#ffffff;">
               <div style="padding-top:18px;border-top:1px solid #ececec;">
-                <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
-                            text-transform:uppercase;color:#c8102e;margin:0 0 8px 0;">
-                  Company mix
-                </div>
-                <div style="font-size:13px;color:#555555;line-height:1.6;margin:0 0 16px 0;">
-                  {dist_bits}
-                </div>
                 <p style="margin:0;font-size:11px;color:#999999;line-height:1.5;">
-                  {escape(brand)} · {escape(owner)} · Coverage {escape(period_label)}
+                  {escape(issue_title)} · {escape(owner)} · Coverage {escape(period_label)}
                   · Generated {escape(generated_at)}
                 </p>
               </div>

@@ -172,8 +172,9 @@ def build_pubmed_query(
     if company_terms is not None:
         companies = list(company_terms)
     else:
-        cmap = pb.company_product_map(book, include_own=False)
-        companies = companies_for_query(company_map=cmap, include_own_portfolio=False)
+        # Include J&J portfolio names/products so own evidence is retrieved too.
+        cmap = pb.company_product_map(book, include_own=True)
+        companies = companies_for_query(company_map=cmap, include_own_portfolio=True)
 
     # (ablation ∪ EP) ∧ diseases ∧ (companies ∪ products)
     topic_clause = _or_clause(tech + ep)

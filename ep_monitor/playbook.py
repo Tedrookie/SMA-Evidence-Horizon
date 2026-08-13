@@ -35,9 +35,9 @@ def default_playbook() -> dict[str, Any]:
 
     return {
         "meta": {
-            "product_name": "J&J EP Monitor",
+            "product_name": "SMA Horizon",
             "owner": "Strategic Medical Affairs / JJMC",
-            "tagline": "Moving healthcare forward, together.",
+            "tagline": "Turning medical evidence into strategic clarity.",
         },
         "schedule": {
             "mode": config.SCHEDULE_MODE,
