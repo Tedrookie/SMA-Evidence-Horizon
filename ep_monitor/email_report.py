@@ -219,7 +219,7 @@ def build_html_report(
               {_dist_table("Technology distribution", tech_dist)}
               {_dist_table("Company distribution", company_dist)}
               <p style="margin:20px 0 0 0;font-size:12px;color:#6b7280;">
-                Generated automatically by EP Monitor · {escape(generated_at)}
+                Generated automatically by Evidence Horizon · {escape(generated_at)}
               </p>
             </td>
           </tr>
@@ -265,15 +265,14 @@ def basic_subject(
     period_end: date | None = None,
     playbook: dict | None = None,
 ) -> str:
-    """Subject line for the SMA Horizon digest."""
+    """Subject line for the Evidence Horizon digest."""
     from ep_monitor import playbook as pb
 
     end = period_end or report_date or date.today()
     start = period_start or (end - timedelta(days=max(lookback_days, 1) - 1))
     window = _fmt_period(start, end)
     name = pb.product_name(playbook)
-    label = name if name.casefold().startswith("sma ") else f"SMA {name}"
-    return f"J&J News: {label} — {window} ({article_count} papers)"
+    return f"J&J News: {name} — {window} ({article_count} papers)"
 
 
 
@@ -411,7 +410,7 @@ def _company_products_line(article: Article) -> str:
 
 
 def _basic_paper_section(article: Article, index: int, total: int) -> str:
-    """SMA Horizon article card (Paper i/N)."""
+    """Evidence Horizon article card (Paper i/N)."""
     pubmed_link = article.url or f"https://pubmed.ncbi.nlm.nih.gov/{article.source_id}/"
     abstract = _full_abstract(article.abstract)
     authors_line = _format_authors_line(article)
@@ -492,7 +491,7 @@ def _jj_news_masthead_html(
     tagline: str,
     owner: str,
 ) -> str:
-    """J&J News masthead + SMA Horizon title/slogan."""
+    """J&J News masthead + Evidence Horizon title/slogan."""
     return f"""
           <tr>
             <td style="padding:28px 32px 8px 32px;background:#ffffff;">
@@ -549,7 +548,7 @@ def build_basic_html_report(
     period_end: date | None = None,
     playbook: dict | None = None,
 ) -> str:
-    """Render SMA Horizon HTML digest (no charts)."""
+    """Render Evidence Horizon HTML digest (no charts)."""
     from ep_monitor import playbook as pb
 
     book = playbook if playbook is not None else pb.load_playbook()
@@ -603,7 +602,7 @@ def build_basic_html_report(
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     coverage_line = f"Coverage: {period_label} ({days} {day_word})"
-    issue_title = brand if brand.casefold().startswith("sma ") else f"SMA {brand}"
+    issue_title = brand
     masthead = _jj_news_masthead_html(
         issue_title=issue_title,
         coverage_line=coverage_line,

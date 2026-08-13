@@ -1,7 +1,8 @@
-"""Excel playbook template + import/export for SMA Horizon.
+"""Excel playbook template + import/export for Evidence Horizon.
 
-MA teams can edit a workbook (Domains / Companies / Settings) and upload it
-in the Streamlit console. Competitor product lists are optional.
+Medical Affairs can edit domains, keywords, and competitor company names
+in Excel, then upload the file in the App Manual console.
+Competitor product lists are optional.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from ep_monitor import playbook as pb
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_PATH = config.DATA_DIR / "sma_horizon_playbook_template.xlsx"
+TEMPLATE_PATH = config.DATA_DIR / "evidence_horizon_playbook_template.xlsx"
 
 _JJ_RED = "C8102E"
 
@@ -43,7 +44,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
     meta = book.get("meta") or {}
     sched = book.get("schedule") or {}
     rows = [
-        ("product_name", meta.get("product_name", "SMA Horizon"), "System display name"),
+        ("product_name", meta.get("product_name", "Evidence Horizon"), "System display name"),
         ("tagline", meta.get("tagline", ""), "Slogan under the title"),
         ("owner", meta.get("owner", "Strategic Medical Affairs / JJMC"), ""),
         ("schedule_mode", sched.get("mode", "weekly"), "weekly or daily"),
@@ -135,7 +136,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
 
     # --- Instructions ---
     wi = wb.create_sheet("Instructions", 0)
-    wi["A1"] = "SMA Horizon — Playbook Excel (for Medical Affairs)"
+    wi["A1"] = "Evidence Horizon — Playbook Excel (for Medical Affairs)"
     wi["A1"].font = Font(bold=True, size=14, color=_JJ_RED)
     instructions = [
         "",
@@ -145,7 +146,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
         "3. In Companies, role must be competitor or jj (Johnson & Johnson portfolio).",
         "4. products_optional can be left blank — company name alone is enough for search.",
         "5. Add a new domain: new row in Domains + company rows with the same domain_id.",
-        "6. Upload this file in the SMA Horizon console (Playbook Excel upload).",
+        "6. Upload this file in the Evidence Horizon console (Playbook Excel upload).",
         "",
         "Starter domains: ep (Electrophysiology), nv (Neurovascular), surgery (Surgery).",
     ]

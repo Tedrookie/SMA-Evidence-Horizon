@@ -1,4 +1,4 @@
-# SMA Evidence Horizon
+# Evidence Horizon
 
 **Strategic Medical Affairs literature monitor** for J&J MedTech China (JJMC). Starts with **EP, NV, and Surgery**; Medical Affairs can add domains later via Excel or the console.
 
@@ -38,7 +38,7 @@ Interactive control: **Streamlit console** (`python -m ep_monitor.console`).
 | Path | Role |
 |------|------|
 | [`ep_monitor/data/playbook.yaml`](ep_monitor/data/playbook.yaml) | Active playbook (domains, keywords, companies, schedule, recipients) |
-| [`ep_monitor/data/sma_horizon_playbook_template.xlsx`](ep_monitor/data/sma_horizon_playbook_template.xlsx) | Starter Excel MA can edit and re-upload |
+| [`ep_monitor/data/evidence_horizon_playbook_template.xlsx`](ep_monitor/data/evidence_horizon_playbook_template.xlsx) | Starter Excel MA can edit and re-upload |
 | [`ep_monitor/excel_playbook.py`](ep_monitor/excel_playbook.py) | Excel template write / import |
 | [`ep_monitor/playbook.py`](ep_monitor/playbook.py) | Load / save / query helpers |
 | [`ep_monitor/console.py`](ep_monitor/console.py) | Streamlit App Manual UI |
@@ -95,7 +95,7 @@ python -m ep_monitor.main_basic --print-schedule
 
 ## Digest format
 
-- Masthead: **J&J News** → title **SMA Horizon** → slogan line  
+- Masthead: **J&J News** → title **Evidence Horizon** → slogan line  
 - **Summary:** domains covered; total papers; J&J-related count; other-companies count (no charts)  
 - **Articles:** `Paper i/N`, full abstract, authors (3–5 + et al. + first-author institute), companies/products as text (no red chips)
 

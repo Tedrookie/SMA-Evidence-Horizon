@@ -35,7 +35,7 @@ def default_playbook() -> dict[str, Any]:
 
     return {
         "meta": {
-            "product_name": "SMA Horizon",
+            "product_name": "Evidence Horizon",
             "owner": "Strategic Medical Affairs / JJMC",
             "tagline": "Turning medical evidence into strategic clarity.",
         },
@@ -219,7 +219,7 @@ def query_vocab_for_domain(domain: dict[str, Any]) -> dict[str, list[str]]:
 def product_name(playbook: dict[str, Any] | None = None) -> str:
     pb = playbook if playbook is not None else load_playbook()
     meta = pb.get("meta") or {}
-    return str(meta.get("product_name") or "J&J EP Monitor")
+    return str(meta.get("product_name") or "Evidence Horizon")
 
 
 def tagline(playbook: dict[str, Any] | None = None) -> str:

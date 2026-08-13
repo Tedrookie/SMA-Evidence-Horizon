@@ -141,7 +141,7 @@ def run_basic_pipeline(
             html,
             config.REPORTS_DIR,
             report_date=report_day,
-            prefix="sma_horizon_digest",
+            prefix="evidence_horizon_digest",
         )
         logger.info("HTML report saved to %s", report_path)
 

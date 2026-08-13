@@ -1,4 +1,4 @@
-"""Streamlit App Manual console for J&J EP Monitor.
+"""Streamlit App Manual console for Evidence Horizon.
 
 Edit the surveillance playbook (domains, keywords, companies, recipients,
 schedule), fetch PubMed articles, save to SQLite/Excel, and send digests.
@@ -44,7 +44,7 @@ def _render_app() -> None:
     from ep_monitor.pubmed_search import search_pubmed
 
     st.set_page_config(
-        page_title="SMA Horizon · App Manual",
+        page_title="Evidence Horizon · App Manual",
         layout="wide",
     )
 
@@ -70,7 +70,7 @@ def _render_app() -> None:
     st.markdown(
         """
         <div class="jj-banner">
-          <div class="brand">SMA Horizon</div>
+          <div class="brand">Evidence Horizon</div>
           <h1>App Manual Console</h1>
           <div>Turning medical evidence into strategic clarity. · JJMC Medical Affairs</div>
         </div>
@@ -185,7 +185,7 @@ def _render_app() -> None:
         st.download_button(
             "Download starter Excel playbook",
             data=template_path.read_bytes(),
-            file_name="sma_horizon_playbook_template.xlsx",
+            file_name="evidence_horizon_playbook_template.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         uploaded = st.file_uploader("Upload edited playbook Excel", type=["xlsx"])
@@ -205,7 +205,9 @@ def _render_app() -> None:
 
         meta = book.setdefault("meta", {})
         sched = book.setdefault("schedule", {})
-        meta["product_name"] = st.text_input("Product name", meta.get("product_name", "SMA Horizon"))
+        meta["product_name"] = st.text_input(
+            "Product name", meta.get("product_name", "Evidence Horizon")
+        )
         meta["owner"] = st.text_input("Owner", meta.get("owner", "Strategic Medical Affairs / JJMC"))
         meta["tagline"] = st.text_input(
             "Tagline", meta.get("tagline", "Moving healthcare forward, together.")
