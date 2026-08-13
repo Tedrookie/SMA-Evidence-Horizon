@@ -1,4 +1,4 @@
-# SMA Horizon
+# SMA Evidence Horizon
 
 **Strategic Medical Affairs literature monitor** for J&J MedTech China (JJMC). Starts with **EP, NV, and Surgery**; Medical Affairs can add domains later via Excel or the console.
 
