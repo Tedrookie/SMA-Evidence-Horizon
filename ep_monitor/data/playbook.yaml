@@ -33,25 +33,58 @@ domains:
   - Contact Force
   companies:
   - name: Boston Scientific
-    products: []
+    products:
+    - FARAPULSE
+    - Farawave
+    - Farastar
+    - FARAWAVE
+    - FARASTAR
+    - VersaCross
   - name: Medtronic
-    products: []
+    products:
+    - PulseSelect
+    - Affera
+    - Sphere-9
+    - Sphere 9
+    - Arctic Front
+    - DiamondTemp
+    - PVAC
   - name: Abbott
-    products: []
+    products:
+    - EnSite X
+    - EnSite
+    - Volt PFA
+    - Volt
+    - TactiFlex
+    - TactiCath
+    - Advisor HD Grid
+    - Ampere
   - name: MicroPort
-    products: []
+    products:
+    - FireMagic
+    - Columbus
+    - EasyFinder
   - name: AtriCure
-    products: []
+    products:
+    - AtriClip
+    - Isolator Synergy
+    - EPi-Sense
+    - cryoICE
   own_portfolio:
   - name: Johnson & Johnson
     products:
     - Biosense Webster
     - VARIPULSE
+    - Varipulse
     - CARTO
+    - QDOT MICRO
     - QDOT
     - THERMOCOOL
+    - ThermoCool
     - OPTRELL
     - Octaray
+    - OCTARAY
+    - NuVision
 - id: nv
   name: Neurovascular (NV)
   enabled: true
@@ -73,21 +106,47 @@ domains:
   - Neurointervention
   companies:
   - name: Medtronic
-    products: []
+    products:
+    - Solitaire
+    - Pipeline
+    - React
+    - Phenox
+    - Axium
   - name: Stryker
-    products: []
+    products:
+    - Trevo
+    - Neuroform
+    - Surpass
+    - AXS Catalyst
+    - Target
   - name: Penumbra
-    products: []
+    products:
+    - Penumbra System
+    - Indigo
+    - Lightning
+    - RED
+    - ACE
   - name: MicroVention
-    products: []
+    products:
+    - WEB
+    - SOFIA
+    - LVIS
+    - HydroSoft
+    - FRED
   - name: Terumo
-    products: []
+    products:
+    - Azur
+    - Soar
+    - PX SLIM
   own_portfolio:
   - name: Johnson & Johnson
     products:
     - Cerenovus
-    - EMBOTRAP
     - CERENOVUS
+    - EMBOTRAP
+    - EMBOTRAP III
+    - Nimbus
+    - TruFill
 - id: surgery
   name: Surgery
   enabled: true
@@ -109,15 +168,32 @@ domains:
   - Operating Room
   companies:
   - name: Intuitive Surgical
-    products: []
+    products:
+    - da Vinci
+    - Ion
+    - da Vinci Xi
+    - da Vinci SP
   - name: Intuitive
-    products: []
+    products:
+    - da Vinci
+    - Ion
   - name: Medtronic
-    products: []
+    products:
+    - Hugo
+    - LigaSure
+    - Signia
+    - Sonicision
+    - Tri-Staple
   - name: Olympus
-    products: []
+    products:
+    - Thunderbeat
+    - VISERA
+    - ENDOEYE
   - name: Stryker
-    products: []
+    products:
+    - Mako
+    - Neptune
+    - "1788"
   own_portfolio:
   - name: Johnson & Johnson
     products:
@@ -126,3 +202,5 @@ domains:
     - MONARCH
     - Echelon
     - Harmonic
+    - Enseal
+    - Megadyne

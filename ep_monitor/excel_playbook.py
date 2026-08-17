@@ -117,7 +117,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
                     did,
                     row.get("name", ""),
                     "competitor",
-                    " | ".join(row.get("products") or []),
+                    " | ".join(str(p) for p in (row.get("products") or [])),
                 ]
             )
         for row in domain.get("own_portfolio") or []:
@@ -128,7 +128,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
                     did,
                     row.get("name", ""),
                     "jj",
-                    " | ".join(row.get("products") or []),
+                    " | ".join(str(p) for p in (row.get("products") or [])),
                 ]
             )
     for col, width in {"A": 14, "B": 28, "C": 12, "D": 40}.items():
