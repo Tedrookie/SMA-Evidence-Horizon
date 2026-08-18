@@ -72,7 +72,7 @@ def _render_app() -> None:
         <div class="jj-banner">
           <div class="brand">Evidence Horizon</div>
           <h1>App Manual Console</h1>
-          <div>Turning medical evidence into strategic clarity. · JJMC Medical Affairs</div>
+          <div>From Evidence to Strategic Insight · JJMC Medical Affairs</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -210,7 +210,7 @@ def _render_app() -> None:
         )
         meta["owner"] = st.text_input("Owner", meta.get("owner", "Strategic Medical Affairs / JJMC"))
         meta["tagline"] = st.text_input(
-            "Tagline", meta.get("tagline", "Moving healthcare forward, together.")
+            "Tagline", meta.get("tagline", "From Evidence to Strategic Insight")
         )
 
         st.markdown("#### Schedule")

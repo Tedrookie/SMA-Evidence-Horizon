@@ -37,7 +37,7 @@ def default_playbook() -> dict[str, Any]:
         "meta": {
             "product_name": "Evidence Horizon",
             "owner": "Strategic Medical Affairs / JJMC",
-            "tagline": "Turning medical evidence into strategic clarity.",
+            "tagline": "From Evidence to Strategic Insight",
         },
         "schedule": {
             "mode": config.SCHEDULE_MODE,
@@ -225,4 +225,4 @@ def product_name(playbook: dict[str, Any] | None = None) -> str:
 def tagline(playbook: dict[str, Any] | None = None) -> str:
     pb = playbook if playbook is not None else load_playbook()
     meta = pb.get("meta") or {}
-    return str(meta.get("tagline") or "Moving healthcare forward, together.")
+    return str(meta.get("tagline") or "From Evidence to Strategic Insight")

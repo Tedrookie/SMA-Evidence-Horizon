@@ -4,7 +4,7 @@
 
 It retrieves recent PubMed papers on J&J and competitor companies, stores full article records for later analysis, and emails a **J&J News–styled HTML digest**.
 
-**Tagline:** *Turning medical evidence into strategic clarity.*
+**Tagline:** *From Evidence to Strategic Insight.*
 
 ---
 
@@ -95,7 +95,7 @@ python -m ep_monitor.main_basic --print-schedule
 
 ## Digest format
 
-- Masthead: **J&J News** → title **Evidence Horizon** → slogan line  
+- Masthead: slogan → **Evidence Horizon** + large **SMA** → date box (`August 11, 2026 to August 18, 2026`)  
 - **Summary:** domains covered; total papers; J&J-related count; other-companies count (no charts)  
 - **Articles:** `Paper i/N`, full abstract, authors (3–5 + et al. + first-author institute), companies/products as text (no red chips)
 
