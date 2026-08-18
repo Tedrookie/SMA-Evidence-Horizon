@@ -276,15 +276,16 @@ def basic_subject(
 
 
 
+def _fmt_mdy(day: date) -> str:
+    """e.g. August 11, 2026 (no leading zero on the day)."""
+    return f"{day.strftime('%B')} {day.day}, {day.year}"
+
+
 def _fmt_period(start: date, end: date) -> str:
-    """Human-readable inclusive date window, e.g. Jul 30 – Aug 5, 2026."""
+    """Human-readable inclusive date window, e.g. August 11, 2026 to August 18, 2026."""
     if start == end:
-        return start.strftime("%b %d, %Y")
-    if start.year == end.year and start.month == end.month:
-        return f"{start.strftime('%b %d')} – {end.strftime('%d, %Y')}"
-    if start.year == end.year:
-        return f"{start.strftime('%b %d')} – {end.strftime('%b %d, %Y')}"
-    return f"{start.strftime('%b %d, %Y')} – {end.strftime('%b %d, %Y')}"
+        return _fmt_mdy(start)
+    return f"{_fmt_mdy(start)} to {_fmt_mdy(end)}"
 
 
 def _visual_overview_html(chart_uris: dict[str, str]) -> str:
@@ -487,55 +488,89 @@ def _basic_paper_section(article: Article, index: int, total: int) -> str:
 def _jj_news_masthead_html(
     *,
     issue_title: str,
-    coverage_line: str,
+    period_label: str,
     tagline: str,
     owner: str,
 ) -> str:
-    """J&J News masthead + Evidence Horizon title/slogan."""
+    """People Leader News–style masthead: slogan, Evidence Horizon + SMA, date box."""
+    date_start, date_end = _split_period_label(period_label)
     return f"""
           <tr>
-            <td style="padding:28px 32px 8px 32px;background:#ffffff;">
-              <table role="presentation" cellpadding="0" cellspacing="0"
-                     style="border-collapse:collapse;margin:0 0 22px 0;">
+            <td style="padding:28px 32px 10px 32px;background:#ffffff;">
+              <div style="font-family:Georgia,'Times New Roman',Times,serif;
+                          font-size:13px;font-style:italic;color:#4a4a4a;
+                          margin:0 0 14px 0;line-height:1.4;">
+                {escape(tagline)}
+              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="border-collapse:collapse;margin:0;">
                 <tr>
-                  <td style="background:#c8102e;padding:0 18px;height:52px;
-                             overflow:hidden;vertical-align:middle;">
+                  <td valign="bottom" style="padding:0 12px 6px 0;">
                     <div style="font-family:Georgia,'Times New Roman',Times,serif;
-                                font-size:64px;font-weight:700;line-height:52px;
-                                color:#ffffff;letter-spacing:-0.02em;
-                                mso-line-height-rule:exactly;">
-                      J&amp;J
+                                font-size:22px;font-weight:700;line-height:1.15;
+                                color:#c8102e;">
+                      {escape(issue_title)}
+                    </div>
+                  </td>
+                  <td valign="bottom" align="right" style="padding:0 0 0 8px;width:140px;">
+                    <div style="font-family:Georgia,'Times New Roman',Times,serif;
+                                font-size:64px;font-weight:700;line-height:0.85;
+                                color:#c8102e;letter-spacing:-0.03em;">
+                      SMA
                     </div>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:8px 0 0 2px;">
+                  <td colspan="2" style="padding:0;border-bottom:3px solid #c8102e;
+                                         font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="border-collapse:collapse;margin:18px 0 8px 0;">
+                <tr>
+                  <td valign="top" style="padding:8px 16px 0 0;">
                     <div style="font-family:Arial,Helvetica,sans-serif;
-                                font-size:28px;font-weight:700;line-height:1.1;
-                                color:#c8102e;letter-spacing:-0.01em;">
-                      News
+                                font-size:12px;color:#666666;line-height:1.45;">
+                      {escape(owner)}
                     </div>
+                  </td>
+                  <td valign="top" align="right" width="220"
+                      style="padding:0;width:220px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0"
+                           style="border-collapse:collapse;background:#c8102e;width:220px;">
+                      <tr>
+                        <td align="center" style="padding:18px 16px 16px 16px;">
+                          <div style="font-family:Georgia,'Times New Roman',Times,serif;
+                                      font-size:16px;font-weight:700;color:#ffffff;
+                                      line-height:1.25;margin:0 0 10px 0;">
+                            {escape(issue_title)}
+                          </div>
+                          <div style="border-top:1px solid #ffffff;height:1px;
+                                      line-height:1px;font-size:0;margin:0 24px 12px 24px;">
+                            &nbsp;
+                          </div>
+                          <div style="font-family:Georgia,'Times New Roman',Times,serif;
+                                      font-size:14px;color:#ffffff;line-height:1.4;">
+                            {escape(date_start)}
+                            {('<br/>to<br/>' + escape(date_end)) if date_end else ''}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
-              <div style="font-family:Arial,Helvetica,sans-serif;
-                          font-size:26px;font-weight:700;line-height:1.25;
-                          color:#1a1a1a;margin:0 0 8px 0;">
-                {escape(issue_title)}
-              </div>
-              <div style="font-family:Arial,Helvetica,sans-serif;
-                          font-size:14px;color:#555555;line-height:1.5;margin:0 0 10px 0;
-                          font-style:italic;">
-                {escape(tagline)}
-              </div>
-              <div style="font-family:Arial,Helvetica,sans-serif;
-                          font-size:13px;color:#333333;line-height:1.5;">
-                {escape(coverage_line)}
-                &nbsp;·&nbsp; {escape(owner)}
-              </div>
             </td>
           </tr>
     """.strip()
+
+
+def _split_period_label(period_label: str) -> tuple[str, str]:
+    """Split 'August 11, 2026 to August 18, 2026' for the red date box."""
+    parts = period_label.split(" to ", 1)
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].strip()
+    return period_label.strip(), ""
 
 
 def build_basic_html_report(
@@ -564,7 +599,6 @@ def build_basic_html_report(
     days = max(int(lookback_days), 1)
     start = period_start or (end - timedelta(days=days - 1))
     period_label = _fmt_period(start, end)
-    day_word = "day" if days == 1 else "days"
     total_found = total_found if total_found > 0 else len(articles)
 
     ordered = sorted(
@@ -601,11 +635,10 @@ def build_basic_html_report(
         )
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    coverage_line = f"Coverage: {period_label} ({days} {day_word})"
     issue_title = brand
     masthead = _jj_news_masthead_html(
         issue_title=issue_title,
-        coverage_line=coverage_line,
+        period_label=period_label,
         tagline=tag,
         owner=owner,
     )
@@ -665,7 +698,7 @@ def build_basic_html_report(
             <td style="padding:8px 32px 32px 32px;background:#ffffff;">
               <div style="padding-top:18px;border-top:1px solid #ececec;">
                 <p style="margin:0;font-size:11px;color:#999999;line-height:1.5;">
-                  {escape(issue_title)} · {escape(owner)} · Coverage {escape(period_label)}
+                  {escape(issue_title)} · {escape(owner)} · {escape(period_label)}
                   · Generated {escape(generated_at)}
                 </p>
               </div>
