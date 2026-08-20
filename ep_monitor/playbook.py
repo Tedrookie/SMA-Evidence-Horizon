@@ -38,6 +38,7 @@ def default_playbook() -> dict[str, Any]:
             "product_name": "Evidence Horizon",
             "owner": "Strategic Medical Affairs / JJMC",
             "tagline": "From Evidence to Strategic Insight",
+            "digest_title": "",
         },
         "schedule": {
             "mode": config.SCHEDULE_MODE,
@@ -226,3 +227,10 @@ def tagline(playbook: dict[str, Any] | None = None) -> str:
     pb = playbook if playbook is not None else load_playbook()
     meta = pb.get("meta") or {}
     return str(meta.get("tagline") or "From Evidence to Strategic Insight")
+
+
+def digest_title(playbook: dict[str, Any] | None = None) -> str:
+    """Optional issue phrase shown after 'SMA Evidence Horizon:' in the digest."""
+    pb = playbook if playbook is not None else load_playbook()
+    meta = pb.get("meta") or {}
+    return str(meta.get("digest_title") or "").strip()

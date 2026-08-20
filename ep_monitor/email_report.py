@@ -272,7 +272,9 @@ def basic_subject(
     start = period_start or (end - timedelta(days=max(lookback_days, 1) - 1))
     window = _fmt_period(start, end)
     name = pb.product_name(playbook)
-    return f"J&J News: {name} — {window} ({article_count} papers)"
+    phrase = pb.digest_title(playbook)
+    label = f"{name}: {phrase}" if phrase else name
+    return f"J&J News: SMA {label} — {window} ({article_count} papers)"
 
 
 
@@ -372,54 +374,97 @@ def _is_jj_company(name: str) -> bool:
     return any(m in n for m in markers)
 
 
-def _format_authors_line(article: Article, *, max_authors: int = 5) -> str:
-    """3–5 authors + et al., plus first-author institute when available."""
+def _shorten_affiliation(raw: str, *, limit: int = 160) -> str:
+    aff = " ".join(str(raw or "").split())
+    if len(aff) > limit:
+        return aff[: limit - 1].rstrip() + "…"
+    return aff
+
+
+def _author_institute_block(article: Article) -> str:
+    """First / last author + institute, each on its own line."""
     authors = article.authors or []
-    if not authors:
-        author_bit = "Unknown"
-    elif len(authors) <= max_authors:
-        author_bit = "; ".join(authors)
-    else:
-        keep = min(max(3, max_authors), len(authors))
-        author_bit = "; ".join(authors[:keep]) + "; et al."
-
-    aff = ""
     meta = article.raw_metadata or {}
-    raw_aff = meta.get("first_author_affiliation") or ""
-    if not raw_aff:
-        affs = meta.get("affiliations") or []
-        if isinstance(affs, list) and affs:
-            raw_aff = str(affs[0])
-    if raw_aff:
-        # Keep institute readable — first clause before country/email noise
-        aff = " ".join(str(raw_aff).split())
-        if len(aff) > 160:
-            aff = aff[:159].rstrip() + "…"
-    if aff:
-        return f"{author_bit}  ·  First author institute: {aff}"
-    return author_bit
+    affs = meta.get("affiliations") or []
+    if not isinstance(affs, list):
+        affs = []
+
+    first_name = authors[0] if authors else "Unknown"
+    last_name = authors[-1] if authors else "Unknown"
+    if len(authors) == 1:
+        last_name = first_name
+
+    first_aff = meta.get("first_author_affiliation") or (affs[0] if affs else "")
+    last_aff = meta.get("last_author_affiliation") or (affs[-1] if affs else "")
+    first_aff = _shorten_affiliation(str(first_aff)) if first_aff else "—"
+    last_aff = _shorten_affiliation(str(last_aff)) if last_aff else "—"
+
+    return (
+        f"First Author and Institute: {escape(first_name)}; {escape(first_aff)}<br/>"
+        f"Last Author and Institute: {escape(last_name)}; {escape(last_aff)}"
+    )
 
 
-def _company_products_line(article: Article) -> str:
-    companies = article.matched_companies or []
-    products = article.matched_products or []
+def _products_used_line(article: Article, playbook: dict | None = None) -> str:
+    """e.g. SOFIA from MicroVention, EMBOTRAP from Johnson & Johnson."""
+    from ep_monitor import playbook as pb
+
+    companies = list(article.matched_companies or [])
+    products = list(article.matched_products or [])
     if not companies and not products:
-        return "Not attributed to a listed company/product in this run"
-    company_bit = ", ".join(companies) if companies else "—"
-    product_bit = ", ".join(products) if products else "—"
-    return f"Companies: {company_bit}  ·  Products: {product_bit}"
+        return "No products or companies found from the playbook"
+
+    company_map = pb.company_product_map(playbook, include_own=True)
+    # product (casefold) -> preferred company display name
+    product_owner: dict[str, str] = {}
+    for company, kws in company_map.items():
+        for kw in kws or []:
+            key = str(kw).casefold().strip()
+            if key and key not in product_owner:
+                product_owner[key] = company
+
+    bits: list[str] = []
+    used_companies: set[str] = set()
+    for product in products:
+        owner = product_owner.get(product.casefold().strip())
+        if owner:
+            bits.append(f"{product} from {owner}")
+            used_companies.add(owner.casefold())
+        else:
+            bits.append(product)
+
+    for company in companies:
+        if company.casefold() not in used_companies:
+            bits.append(company)
+            used_companies.add(company.casefold())
+
+    return ", ".join(bits) if bits else "No products or companies found from the playbook"
 
 
-def _basic_paper_section(article: Article, index: int, total: int) -> str:
+def _domain_full_name(name: str) -> str:
+    """Prefer full domain labels without short parenthetical codes."""
+    import re
+
+    cleaned = re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "")).strip()
+    return cleaned or str(name or "").strip()
+
+
+def _basic_paper_section(
+    article: Article,
+    index: int,
+    total: int,
+    *,
+    playbook: dict | None = None,
+) -> str:
     """Evidence Horizon article card (Paper i/N)."""
     pubmed_link = article.url or f"https://pubmed.ncbi.nlm.nih.gov/{article.source_id}/"
     abstract = _full_abstract(article.abstract)
-    authors_line = _format_authors_line(article)
-    company_line = _company_products_line(article)
+    author_block = _author_institute_block(article)
+    products_line = _products_used_line(article, playbook)
 
     return f"""
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="margin:0 0 28px 0;border-collapse:collapse;">
+           style="margin:0 0 32px 0;border-collapse:collapse;">
       <tr>
         <td style="padding:0 0 8px 0;">
           <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;
@@ -441,19 +486,20 @@ def _basic_paper_section(article: Article, index: int, total: int) -> str:
         </td>
       </tr>
       <tr>
-        <td style="padding:0 0 10px 0;font-size:13px;color:#555555;line-height:1.55;
+        <td style="padding:0 0 10px 0;font-size:13px;color:#555555;line-height:1.65;
                    font-family:Arial,Helvetica,sans-serif;">
           {escape(article.journal or "Unknown journal")}
           &nbsp;·&nbsp; {_fmt_date(article.publication_date)}
           &nbsp;·&nbsp; PMID {escape(article.source_id)}
-          <br/>
-          {escape(authors_line)}
-          <br/>
-          {escape(company_line)}
+          <br/><br/>
+          {author_block}
+          <br/><br/>
+          <strong>Products Used (from Companies):</strong>
+          {escape(products_line)}
         </td>
       </tr>
       <tr>
-        <td style="padding:0 0 6px 0;">
+        <td style="padding:8px 0 6px 0;">
           <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;
                       text-transform:uppercase;color:#888888;
                       font-family:Arial,Helvetica,sans-serif;">
@@ -476,101 +522,38 @@ def _basic_paper_section(article: Article, index: int, total: int) -> str:
           </a>
         </td>
       </tr>
-      <tr>
-        <td style="padding:20px 0 0 0;border-bottom:1px solid #e6e6e6;font-size:0;line-height:0;">
-          &nbsp;
-        </td>
-      </tr>
     </table>
     """.strip()
 
 
 def _jj_news_masthead_html(
     *,
-    issue_title: str,
-    period_label: str,
+    digest_phrase: str,
     tagline: str,
-    owner: str,
 ) -> str:
-    """People Leader News–style masthead: slogan, Evidence Horizon + SMA, date box."""
-    date_start, date_end = _split_period_label(period_label)
+    """Simplified masthead: slogan + SMA Evidence Horizon: {phrase}."""
+    headline = "SMA Evidence Horizon"
+    if digest_phrase:
+        headline = f"SMA Evidence Horizon: {digest_phrase}"
     return f"""
           <tr>
-            <td style="padding:28px 32px 10px 32px;background:#ffffff;">
+            <td style="padding:28px 32px 18px 32px;background:#ffffff;">
               <div style="font-family:Georgia,'Times New Roman',Times,serif;
                           font-size:13px;font-style:italic;color:#4a4a4a;
-                          margin:0 0 14px 0;line-height:1.4;">
+                          margin:0 0 16px 0;line-height:1.4;">
                 {escape(tagline)}
               </div>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border-collapse:collapse;margin:0;">
-                <tr>
-                  <td valign="bottom" style="padding:0 12px 6px 0;">
-                    <div style="font-family:Georgia,'Times New Roman',Times,serif;
-                                font-size:22px;font-weight:700;line-height:1.15;
-                                color:#c8102e;">
-                      {escape(issue_title)}
-                    </div>
-                  </td>
-                  <td valign="bottom" align="right" style="padding:0 0 0 8px;width:140px;">
-                    <div style="font-family:Georgia,'Times New Roman',Times,serif;
-                                font-size:64px;font-weight:700;line-height:0.85;
-                                color:#c8102e;letter-spacing:-0.03em;">
-                      SMA
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td colspan="2" style="padding:0;border-bottom:3px solid #c8102e;
-                                         font-size:0;line-height:0;">&nbsp;</td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border-collapse:collapse;margin:18px 0 8px 0;">
-                <tr>
-                  <td valign="top" style="padding:8px 16px 0 0;">
-                    <div style="font-family:Arial,Helvetica,sans-serif;
-                                font-size:12px;color:#666666;line-height:1.45;">
-                      {escape(owner)}
-                    </div>
-                  </td>
-                  <td valign="top" align="right" width="220"
-                      style="padding:0;width:220px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0"
-                           style="border-collapse:collapse;background:#c8102e;width:220px;">
-                      <tr>
-                        <td align="center" style="padding:18px 16px 16px 16px;">
-                          <div style="font-family:Georgia,'Times New Roman',Times,serif;
-                                      font-size:16px;font-weight:700;color:#ffffff;
-                                      line-height:1.25;margin:0 0 10px 0;">
-                            {escape(issue_title)}
-                          </div>
-                          <div style="border-top:1px solid #ffffff;height:1px;
-                                      line-height:1px;font-size:0;margin:0 24px 12px 24px;">
-                            &nbsp;
-                          </div>
-                          <div style="font-family:Georgia,'Times New Roman',Times,serif;
-                                      font-size:14px;color:#ffffff;line-height:1.4;">
-                            {escape(date_start)}
-                            {('<br/>to<br/>' + escape(date_end)) if date_end else ''}
-                          </div>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
+              <div style="font-family:Georgia,'Times New Roman',Times,serif;
+                          font-size:26px;font-weight:700;line-height:1.25;
+                          color:#c8102e;margin:0 0 12px 0;">
+                {escape(headline)}
+              </div>
+              <div style="border-bottom:3px solid #c8102e;font-size:0;line-height:0;">
+                &nbsp;
+              </div>
             </td>
           </tr>
     """.strip()
-
-
-def _split_period_label(period_label: str) -> tuple[str, str]:
-    """Split 'August 11, 2026 to August 18, 2026' for the red date box."""
-    parts = period_label.split(" to ", 1)
-    if len(parts) == 2:
-        return parts[0].strip(), parts[1].strip()
-    return period_label.strip(), ""
 
 
 def build_basic_html_report(
@@ -587,11 +570,11 @@ def build_basic_html_report(
     from ep_monitor import playbook as pb
 
     book = playbook if playbook is not None else pb.load_playbook()
-    brand = pb.product_name(book)
     tag = pb.tagline(book)
-    owner = str((book.get("meta") or {}).get("owner") or "Strategic Medical Affairs / JJMC")
+    phrase = pb.digest_title(book)
     domain_names = ", ".join(
-        str(d.get("name") or d.get("id")) for d in pb.enabled_domains(book)
+        _domain_full_name(str(d.get("name") or d.get("id")))
+        for d in pb.enabled_domains(book)
     ) or "Selected domains"
 
     report_day = report_date or date.today()
@@ -599,7 +582,6 @@ def build_basic_html_report(
     days = max(int(lookback_days), 1)
     start = period_start or (end - timedelta(days=days - 1))
     period_label = _fmt_period(start, end)
-    total_found = total_found if total_found > 0 else len(articles)
 
     ordered = sorted(
         articles,
@@ -623,7 +605,7 @@ def build_basic_html_report(
 
     if ordered:
         papers_html = "\n".join(
-            _basic_paper_section(a, i, total_papers)
+            _basic_paper_section(a, i, total_papers, playbook=book)
             for i, a in enumerate(ordered, start=1)
         )
     else:
@@ -635,12 +617,12 @@ def build_basic_html_report(
         )
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    issue_title = brand
+    page_title = (
+        f"SMA Evidence Horizon: {phrase}" if phrase else "SMA Evidence Horizon"
+    )
     masthead = _jj_news_masthead_html(
-        issue_title=issue_title,
-        period_label=period_label,
+        digest_phrase=phrase,
         tagline=tag,
-        owner=owner,
     )
 
     return f"""<!DOCTYPE html>
@@ -648,7 +630,7 @@ def build_basic_html_report(
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{escape(issue_title)} ({escape(period_label)})</title>
+  <title>{escape(page_title)} ({escape(period_label)})</title>
 </head>
 <body style="margin:0;padding:0;background:#f2f2f2;
              font-family:Arial,Helvetica,sans-serif;">
@@ -662,46 +644,41 @@ def build_basic_html_report(
 
           {masthead}
 
-          <!-- Summary counts only -->
           <tr>
-            <td style="padding:22px 32px;background:#ffffff;border-bottom:1px solid #ececec;">
+            <td style="padding:8px 32px 22px 32px;background:#ffffff;">
               <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
-                          text-transform:uppercase;color:#c8102e;margin:0 0 10px 0;">
+                          text-transform:uppercase;color:#c8102e;margin:0 0 12px 0;">
                 Summary
               </div>
-              <div style="font-size:15px;color:#333333;line-height:1.7;">
-                Domains: <strong>{escape(domain_names)}</strong><br/>
-                Papers in this digest: <strong>{total_papers}</strong>
-                &nbsp;(PubMed hits in window: {total_found})<br/>
-                Johnson &amp; Johnson–related: <strong>{jj_count}</strong><br/>
-                Other companies: <strong>{other_count}</strong>
+              <div style="font-size:15px;color:#333333;line-height:1.85;
+                          font-family:Arial,Helvetica,sans-serif;">
+                Domain: <strong>{escape(domain_names)}</strong><br/>
+                Articles Published: <strong>{escape(period_label)}</strong><br/>
+                Papers in this digest: <strong>{total_papers}</strong><br/>
+                Johnson &amp; Johnson products used: <strong>{jj_count}</strong><br/>
+                Other companies products used: <strong>{other_count}</strong>
               </div>
             </td>
           </tr>
 
-          <!-- Articles -->
           <tr>
-            <td style="padding:28px 32px 8px 32px;background:#ffffff;">
-              <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;
-                          text-transform:uppercase;color:#c8102e;margin:0 0 6px 0;">
-                Articles
-              </div>
-              <div style="font-size:13px;color:#666666;margin:0 0 22px 0;">
-                Published {escape(period_label)}. Full abstract included; open PubMed for the manuscript.
-              </div>
+            <td style="padding:8px 32px 8px 32px;background:#ffffff;">
               {papers_html}
             </td>
           </tr>
 
-          <!-- Footer -->
           <tr>
-            <td style="padding:8px 32px 32px 32px;background:#ffffff;">
-              <div style="padding-top:18px;border-top:1px solid #ececec;">
-                <p style="margin:0;font-size:11px;color:#999999;line-height:1.5;">
-                  {escape(issue_title)} · {escape(owner)} · {escape(period_label)}
-                  · Generated {escape(generated_at)}
-                </p>
-              </div>
+            <td style="padding:24px 32px 32px 32px;background:#ffffff;">
+              <p style="margin:0;font-size:12px;color:#666666;line-height:1.7;
+                         font-family:Arial,Helvetica,sans-serif;">
+                SMA Evidence Horizon<br/>
+                For any questions, please contact:
+                <a href="mailto:RA-EvidenceHorizon@ITS.JNJ.com"
+                   style="color:#c8102e;text-decoration:none;">
+                  RA-EvidenceHorizon@ITS.JNJ.com
+                </a><br/>
+                Generated {escape(generated_at)}
+              </p>
             </td>
           </tr>
 

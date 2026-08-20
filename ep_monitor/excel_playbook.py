@@ -45,7 +45,12 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
     sched = book.get("schedule") or {}
     rows = [
         ("product_name", meta.get("product_name", "Evidence Horizon"), "System display name"),
-        ("tagline", meta.get("tagline", ""), "Slogan under the title"),
+        ("tagline", meta.get("tagline", ""), "Slogan at the top of the email"),
+        (
+            "digest_title",
+            meta.get("digest_title", ""),
+            "Issue title after SMA Evidence Horizon: (e.g. Stenosis in Neurovascular)",
+        ),
         ("owner", meta.get("owner", "Strategic Medical Affairs / JJMC"), ""),
         ("schedule_mode", sched.get("mode", "weekly"), "weekly or daily"),
         ("weekday", sched.get("weekday", "monday"), "For weekly runs"),
@@ -142,11 +147,12 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
         "",
         "How to use",
         "1. Edit Settings / Domains / Companies sheets (do not rename sheets or header row).",
-        "2. In Domains, separate multiple keywords with  |  (space-pipe-space).",
-        "3. In Companies, role must be competitor or jj (Johnson & Johnson portfolio).",
-        "4. products_optional can be left blank — company name alone is enough for search.",
-        "5. Add a new domain: new row in Domains + company rows with the same domain_id.",
-        "6. Upload this file in the Evidence Horizon console (Playbook Excel upload).",
+        "2. In Settings, digest_title appears in email as: SMA Evidence Horizon: <your phrase>.",
+        "3. In Domains, separate multiple keywords with  |  (space-pipe-space).",
+        "4. In Companies, role must be competitor or jj (Johnson & Johnson portfolio).",
+        "5. products_optional can be left blank — company name alone is enough for search.",
+        "6. Add a new domain: new row in Domains + company rows with the same domain_id.",
+        "7. Upload this file in the Evidence Horizon console (Playbook Excel upload).",
         "",
         "Starter domains: ep (Electrophysiology), nv (Neurovascular), surgery (Surgery).",
     ]
@@ -199,6 +205,8 @@ def playbook_from_excel(file: Path | BinaryIO | bytes) -> dict[str, Any]:
                 meta["product_name"] = str(value or meta.get("product_name", "")).strip()
             elif key == "tagline":
                 meta["tagline"] = str(value or "").strip()
+            elif key == "digest_title":
+                meta["digest_title"] = str(value or "").strip()
             elif key == "owner":
                 meta["owner"] = str(value or "").strip()
             elif key == "schedule_mode":

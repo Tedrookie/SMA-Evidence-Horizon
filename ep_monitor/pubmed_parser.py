@@ -220,6 +220,7 @@ def _parse_medline_text(record: Mapping[str, Any]) -> Article | None:
             "format": "medline_text",
             "affiliations": affiliations,
             "first_author_affiliation": affiliations[0] if affiliations else "",
+            "last_author_affiliation": affiliations[-1] if affiliations else "",
             "publication_types": (
                 list(record["PT"])
                 if isinstance(record.get("PT"), list)
@@ -278,12 +279,16 @@ def _xml_abstract(article: Mapping[str, Any]) -> str:
     return "\n\n".join(parts)
 
 
-def _xml_authors(article: Mapping[str, Any]) -> tuple[list[str], list[str], str]:
-    """Return (author display names, all affiliations, first-author affiliation)."""
+def _xml_authors(
+    article: Mapping[str, Any],
+) -> tuple[list[str], list[str], str, str]:
+    """Return (authors, affiliations, first-author affiliation, last-author affiliation)."""
     author_list = article.get("AuthorList") or []
     authors: list[str] = []
     affiliations: list[str] = []
     first_author_affiliation = ""
+    last_author_affiliation = ""
+    last_author_idx = -1
 
     for idx, author in enumerate(author_list):
         if not isinstance(author, Mapping):
@@ -298,7 +303,10 @@ def _xml_authors(article: Mapping[str, Any]) -> tuple[list[str], list[str], str]
                 authors.append(f"{last}, {fore}")
             elif last:
                 authors.append(last)
+            else:
+                continue
 
+        last_author_idx = len(authors) - 1
         author_affs: list[str] = []
         for info in author.get("AffiliationInfo") or []:
             if isinstance(info, Mapping):
@@ -307,13 +315,17 @@ def _xml_authors(article: Mapping[str, Any]) -> tuple[list[str], list[str], str]
                     author_affs.append(aff)
                     if aff not in affiliations:
                         affiliations.append(aff)
-        if idx == 0 and author_affs and not first_author_affiliation:
+        if last_author_idx == 0 and author_affs and not first_author_affiliation:
             first_author_affiliation = author_affs[0]
+        if author_affs:
+            last_author_affiliation = author_affs[0]
 
     if not first_author_affiliation and affiliations:
         first_author_affiliation = affiliations[0]
+    if not last_author_affiliation and affiliations:
+        last_author_affiliation = affiliations[-1]
 
-    return authors, affiliations, first_author_affiliation
+    return authors, affiliations, first_author_affiliation, last_author_affiliation
 
 
 def _xml_publication_date(article: Mapping[str, Any]) -> Optional[date]:
@@ -367,7 +379,7 @@ def _parse_pubmed_xml(record: Mapping[str, Any]) -> Article | None:
         or _as_str(journal_info.get("ISOAbbreviation"))
         or None
     )
-    authors, affiliations, first_aff = _xml_authors(article)
+    authors, affiliations, first_aff, last_aff = _xml_authors(article)
     pub_date = _xml_publication_date(article)
 
     return Article(
@@ -383,6 +395,7 @@ def _parse_pubmed_xml(record: Mapping[str, Any]) -> Article | None:
             "format": "pubmed_xml",
             "affiliations": affiliations,
             "first_author_affiliation": first_aff,
+            "last_author_affiliation": last_aff,
             "publication_types": _xml_publication_types(citation),
             "doi": _extract_doi_from_xml(article),
             "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace(

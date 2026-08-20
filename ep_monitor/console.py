@@ -212,6 +212,11 @@ def _render_app() -> None:
         meta["tagline"] = st.text_input(
             "Tagline", meta.get("tagline", "From Evidence to Strategic Insight")
         )
+        meta["digest_title"] = st.text_input(
+            "Digest title (after SMA Evidence Horizon:)",
+            meta.get("digest_title", ""),
+            help="Shown in the email header, e.g. Stenosis in Neurovascular",
+        )
 
         st.markdown("#### Schedule")
         sc1, sc2, sc3, sc4 = st.columns(4)

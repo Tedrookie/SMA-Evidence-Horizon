@@ -2,6 +2,7 @@ meta:
   product_name: Evidence Horizon
   owner: Strategic Medical Affairs / JJMC
   tagline: From Evidence to Strategic Insight
+  digest_title: ''
 schedule:
   mode: weekly
   weekday: monday
@@ -11,10 +12,12 @@ schedule:
 recipients:
 - name: ''
   email: zhangchuhan1210@126.com
+- name: ''
+  email: zhangchuhan.rdfz@outlook.com
 domains:
 - id: ep
-  name: Electrophysiology (EP)
-  enabled: true
+  name: Electrophysiology
+  enabled: false
   technologies:
   - Pulsed Field Ablation
   - Radiofrequency Ablation
@@ -86,7 +89,7 @@ domains:
     - OCTARAY
     - NuVision
 - id: nv
-  name: Neurovascular (NV)
+  name: Neurovascular
   enabled: true
   technologies:
   - Mechanical Thrombectomy
@@ -149,7 +152,7 @@ domains:
     - TruFill
 - id: surgery
   name: Surgery
-  enabled: true
+  enabled: false
   technologies:
   - Robotic Surgery
   - Robotic-Assisted Surgery
@@ -193,7 +196,7 @@ domains:
     products:
     - Mako
     - Neptune
-    - "1788"
+    - '1788'
   own_portfolio:
   - name: Johnson & Johnson
     products:

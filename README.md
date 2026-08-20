@@ -95,9 +95,9 @@ python -m ep_monitor.main_basic --print-schedule
 
 ## Digest format
 
-- Masthead: slogan → **Evidence Horizon** + large **SMA** → date box (`August 11, 2026 to August 18, 2026`)  
-- **Summary:** domains covered; total papers; J&J-related count; other-companies count (no charts)  
-- **Articles:** `Paper i/N`, full abstract, authors (3–5 + et al. + first-author institute), companies/products as text (no red chips)
+- Masthead: slogan → **SMA Evidence Horizon: {digest_title}**  
+- **Summary:** Domain (full name); Articles Published (date range); Papers in this digest; J&J / other companies products used  
+- **Articles:** `Paper i/N` with first/last author + institute, products used from companies, full abstract
 
 ---
 
