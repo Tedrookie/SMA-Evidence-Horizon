@@ -230,7 +230,15 @@ def tagline(playbook: dict[str, Any] | None = None) -> str:
 
 
 def digest_title(playbook: dict[str, Any] | None = None) -> str:
-    """Optional issue phrase shown after 'SMA Evidence Horizon:' in the digest."""
+    """Issue phrase after 'SMA Evidence Horizon:' (subdomain name(s) by default)."""
     pb = playbook if playbook is not None else load_playbook()
     meta = pb.get("meta") or {}
-    return str(meta.get("digest_title") or "").strip()
+    explicit = str(meta.get("digest_title") or "").strip()
+    if explicit:
+        return explicit
+    names = [
+        str(d.get("name") or d.get("id")).strip()
+        for d in enabled_domains(pb)
+        if str(d.get("name") or d.get("id")).strip()
+    ]
+    return ", ".join(names)

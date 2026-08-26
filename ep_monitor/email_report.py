@@ -271,23 +271,27 @@ def basic_subject(
     end = period_end or report_date or date.today()
     start = period_start or (end - timedelta(days=max(lookback_days, 1) - 1))
     window = _fmt_period(start, end)
-    name = pb.product_name(playbook)
     phrase = pb.digest_title(playbook)
-    label = f"{name}: {phrase}" if phrase else name
-    return f"J&J News: SMA {label} — {window} ({article_count} papers)"
-
-
-
-def _fmt_mdy(day: date) -> str:
-    """e.g. August 11, 2026 (no leading zero on the day)."""
-    return f"{day.strftime('%B')} {day.day}, {day.year}"
+    label = f"SMA Evidence Horizon: {phrase}" if phrase else "SMA Evidence Horizon"
+    return f"{label} — {window} ({article_count} papers)"
 
 
 def _fmt_period(start: date, end: date) -> str:
-    """Human-readable inclusive date window, e.g. August 11, 2026 to August 18, 2026."""
+    """Inclusive date window in ISO form, e.g. 2026-08-15 to 2026-08-22."""
     if start == end:
-        return _fmt_mdy(start)
-    return f"{_fmt_mdy(start)} to {_fmt_mdy(end)}"
+        return start.isoformat()
+    return f"{start.isoformat()} to {end.isoformat()}"
+
+
+def _beijing_date_str() -> str:
+    """Calendar date in Asia/Shanghai, e.g. 2026-08-25."""
+    try:
+        from zoneinfo import ZoneInfo
+
+        return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+    except Exception:
+        # Fallback: local date only (no UTC clock stamp)
+        return date.today().isoformat()
 
 
 def _visual_overview_html(chart_uris: dict[str, str]) -> str:
@@ -374,11 +378,9 @@ def _is_jj_company(name: str) -> bool:
     return any(m in n for m in markers)
 
 
-def _shorten_affiliation(raw: str, *, limit: int = 160) -> str:
-    aff = " ".join(str(raw or "").split())
-    if len(aff) > limit:
-        return aff[: limit - 1].rstrip() + "…"
-    return aff
+def _clean_affiliation(raw: str) -> str:
+    """Normalize whitespace; keep full affiliation (no ellipsis truncation)."""
+    return " ".join(str(raw or "").split())
 
 
 def _author_institute_block(article: Article) -> str:
@@ -396,8 +398,8 @@ def _author_institute_block(article: Article) -> str:
 
     first_aff = meta.get("first_author_affiliation") or (affs[0] if affs else "")
     last_aff = meta.get("last_author_affiliation") or (affs[-1] if affs else "")
-    first_aff = _shorten_affiliation(str(first_aff)) if first_aff else "—"
-    last_aff = _shorten_affiliation(str(last_aff)) if last_aff else "—"
+    first_aff = _clean_affiliation(str(first_aff)) if first_aff else "—"
+    last_aff = _clean_affiliation(str(last_aff)) if last_aff else "—"
 
     return (
         f"First Author and Institute: {escape(first_name)}; {escape(first_aff)}<br/>"
@@ -412,7 +414,7 @@ def _products_used_line(article: Article, playbook: dict | None = None) -> str:
     companies = list(article.matched_companies or [])
     products = list(article.matched_products or [])
     if not companies and not products:
-        return "No products or companies found from the playbook"
+        return "Not Determined"
 
     company_map = pb.company_product_map(playbook, include_own=True)
     # product (casefold) -> preferred company display name
@@ -438,7 +440,7 @@ def _products_used_line(article: Article, playbook: dict | None = None) -> str:
             bits.append(company)
             used_companies.add(company.casefold())
 
-    return ", ".join(bits) if bits else "No products or companies found from the playbook"
+    return ", ".join(bits) if bits else "Not Determined"
 
 
 def _domain_full_name(name: str) -> str:
@@ -616,7 +618,7 @@ def build_basic_html_report(
             "</p>"
         )
 
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = _beijing_date_str()
     page_title = (
         f"SMA Evidence Horizon: {phrase}" if phrase else "SMA Evidence Horizon"
     )
@@ -671,13 +673,12 @@ def build_basic_html_report(
             <td style="padding:24px 32px 32px 32px;background:#ffffff;">
               <p style="margin:0;font-size:12px;color:#666666;line-height:1.7;
                          font-family:Arial,Helvetica,sans-serif;">
-                SMA Evidence Horizon<br/>
                 For any questions, please contact:
                 <a href="mailto:RA-EvidenceHorizon@ITS.JNJ.com"
                    style="color:#c8102e;text-decoration:none;">
                   RA-EvidenceHorizon@ITS.JNJ.com
-                </a><br/>
-                Generated {escape(generated_at)}
+                </a>
+                &nbsp;·&nbsp; {escape(generated_at)}
               </p>
             </td>
           </tr>

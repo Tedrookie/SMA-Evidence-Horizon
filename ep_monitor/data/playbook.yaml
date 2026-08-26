@@ -11,13 +11,12 @@ schedule:
   lookback_days: 7
 recipients:
 - name: ''
-  email: zhangchuhan1210@126.com
-- name: ''
   email: zhangchuhan.rdfz@outlook.com
 domains:
-- id: ep
-  name: Electrophysiology
-  enabled: false
+- id: ep_ablation
+  name: Electrophysiology Ablation
+  parent: Electrophysiology
+  enabled: true
   technologies:
   - Pulsed Field Ablation
   - Radiofrequency Ablation
@@ -31,8 +30,7 @@ domains:
   - Supraventricular Tachycardia
   ep_topics:
   - Electrophysiology
-  - Electroanatomic Mapping
-  - 3D Mapping
+  - Ablation
   - Contact Force
   companies:
   - name: Boston Scientific
@@ -88,25 +86,69 @@ domains:
     - Octaray
     - OCTARAY
     - NuVision
-- id: nv
-  name: Neurovascular
-  enabled: true
+- id: ep_pfa
+  name: Electrophysiology Pulsed Field Ablation
+  parent: Electrophysiology
+  enabled: false
   technologies:
-  - Mechanical Thrombectomy
-  - Endovascular
-  - Flow Diverter
-  - Coil Embolization
-  - Stent Retriever
+  - Pulsed Field Ablation
+  - PFA
+  - Electroporation
   diseases:
-  - Ischemic Stroke
-  - Acute Ischemic Stroke
-  - Intracranial Aneurysm
-  - Cerebral Aneurysm
-  - Large Vessel Occlusion
+  - Atrial Fibrillation
+  - Persistent Atrial Fibrillation
+  - Paroxysmal Atrial Fibrillation
+  ep_topics:
+  - Electrophysiology
+  - Catheter Ablation
+  - Pulmonary Vein Isolation
+  companies:
+  - name: Boston Scientific
+    products:
+    - FARAPULSE
+    - Farawave
+    - Farastar
+    - FARAWAVE
+    - FARASTAR
+  - name: Medtronic
+    products:
+    - PulseSelect
+    - Affera
+    - Sphere-9
+  - name: Abbott
+    products:
+    - Volt PFA
+    - Volt
+  - name: MicroPort
+    products:
+    - FireMagic
+  own_portfolio:
+  - name: Johnson & Johnson
+    products:
+    - Biosense Webster
+    - VARIPULSE
+    - Varipulse
+    - CARTO
+    - QDOT
+- id: nv_stenosis
+  name: Neurovascular Stenosis
+  parent: Neurovascular
+  enabled: false
+  technologies:
+  - Angioplasty
+  - Stenting
+  - Endovascular
+  - Balloon Dilatation
+  diseases:
+  - Intracranial Stenosis
+  - Intracranial Atherosclerotic Stenosis
+  - Carotid Stenosis
+  - Vertebral Artery Stenosis
+  - Arterial Stenosis
   ep_topics:
   - Neurovascular
-  - Interventional Neuroradiology
-  - Neurointervention
+  - Stenosis
+  - Atherosclerosis
   companies:
   - name: Medtronic
     products:
@@ -150,15 +192,60 @@ domains:
     - EMBOTRAP III
     - Nimbus
     - TruFill
-- id: surgery
-  name: Surgery
+- id: nv_carotid_stenosis
+  name: Neurovascular Carotid Stenosis
+  parent: Neurovascular
+  enabled: false
+  technologies:
+  - Carotid Artery Stenting
+  - Carotid Endarterectomy
+  - Angioplasty
+  - Endovascular
+  diseases:
+  - Carotid Stenosis
+  - Carotid Atherosclerosis
+  - Extracranial Carotid Stenosis
+  - Symptomatic Carotid Stenosis
+  ep_topics:
+  - Neurovascular
+  - Carotid
+  - Stenosis
+  companies:
+  - name: Medtronic
+    products:
+    - Solitaire
+    - Pipeline
+  - name: Stryker
+    products:
+    - Trevo
+    - Neuroform
+    - Surpass
+  - name: Penumbra
+    products:
+    - Penumbra System
+    - Indigo
+  - name: MicroVention
+    products:
+    - SOFIA
+    - LVIS
+    - FRED
+  - name: Terumo
+    products:
+    - Azur
+    - Soar
+  own_portfolio:
+  - name: Johnson & Johnson
+    products:
+    - Cerenovus
+    - CERENOVUS
+    - EMBOTRAP
+- id: surgery_robotic
+  name: Robotic Surgery
+  parent: Surgery
   enabled: false
   technologies:
   - Robotic Surgery
   - Robotic-Assisted Surgery
-  - Laparoscopic Surgery
-  - Surgical Stapling
-  - Energy Device
   - Minimally Invasive Surgery
   diseases:
   - Colorectal Surgery
@@ -185,24 +272,60 @@ domains:
     - Hugo
     - LigaSure
     - Signia
-    - Sonicision
-    - Tri-Staple
   - name: Olympus
     products:
     - Thunderbeat
     - VISERA
-    - ENDOEYE
   - name: Stryker
     products:
     - Mako
     - Neptune
-    - '1788'
   own_portfolio:
   - name: Johnson & Johnson
     products:
     - Ethicon
     - OTTAVA
     - MONARCH
+    - Echelon
+    - Harmonic
+- id: surgery_stapling
+  name: Surgical Stapling
+  parent: Surgery
+  enabled: false
+  technologies:
+  - Surgical Stapling
+  - Stapler
+  - Energy Device
+  - Laparoscopic Surgery
+  diseases:
+  - Colorectal Surgery
+  - Bariatric Surgery
+  - Hernia Repair
+  - Soft Tissue Surgery
+  ep_topics:
+  - General Surgery
+  - Surgical Oncology
+  - Operating Room
+  companies:
+  - name: Medtronic
+    products:
+    - Signia
+    - Tri-Staple
+    - LigaSure
+  - name: Olympus
+    products:
+    - Thunderbeat
+    - ENDOEYE
+  - name: Stryker
+    products:
+    - Neptune
+  - name: Intuitive Surgical
+    products:
+    - da Vinci
+  own_portfolio:
+  - name: Johnson & Johnson
+    products:
+    - Ethicon
     - Echelon
     - Harmonic
     - Enseal

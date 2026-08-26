@@ -49,7 +49,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
         (
             "digest_title",
             meta.get("digest_title", ""),
-            "Issue title after SMA Evidence Horizon: (e.g. Stenosis in Neurovascular)",
+            "Optional override. Blank = use enabled subdomain name(s), e.g. Neurovascular Stenosis",
         ),
         ("owner", meta.get("owner", "Strategic Medical Affairs / JJMC"), ""),
         ("schedule_mode", sched.get("mode", "weekly"), "weekly or daily"),
@@ -78,6 +78,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
     wd.append(
         [
             "domain_id",
+            "parent_domain",
             "domain_name",
             "enabled",
             "technologies",
@@ -94,6 +95,7 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
         wd.append(
             [
                 domain.get("id", ""),
+                domain.get("parent", ""),
                 domain.get("name", ""),
                 "TRUE" if domain.get("enabled", True) else "FALSE",
                 " | ".join(domain.get("technologies") or []),
@@ -101,7 +103,15 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
                 " | ".join(domain.get("ep_topics") or []),
             ]
         )
-    for col, width in {"A": 14, "B": 28, "C": 10, "D": 45, "E": 40, "F": 40}.items():
+    for col, width in {
+        "A": 22,
+        "B": 18,
+        "C": 36,
+        "D": 10,
+        "E": 45,
+        "F": 40,
+        "G": 40,
+    }.items():
         wd.column_dimensions[col].width = width
 
     # --- Companies ---
@@ -147,14 +157,15 @@ def write_playbook_excel(playbook: dict[str, Any] | None = None, path: Path | No
         "",
         "How to use",
         "1. Edit Settings / Domains / Companies sheets (do not rename sheets or header row).",
-        "2. In Settings, digest_title appears in email as: SMA Evidence Horizon: <your phrase>.",
-        "3. In Domains, separate multiple keywords with  |  (space-pipe-space).",
-        "4. In Companies, role must be competitor or jj (Johnson & Johnson portfolio).",
-        "5. products_optional can be left blank — company name alone is enough for search.",
-        "6. Add a new domain: new row in Domains + company rows with the same domain_id.",
-        "7. Upload this file in the Evidence Horizon console (Playbook Excel upload).",
+        "2. domain_name is the subdomain title (e.g. Neurovascular Stenosis → SMA Evidence Horizon: Neurovascular Stenosis).",
+        "3. Leave Settings digest_title blank to auto-use enabled subdomain name(s).",
+        "4. In Domains, separate multiple keywords with  |  (space-pipe-space).",
+        "5. In Companies, role must be competitor or jj (Johnson & Johnson portfolio).",
+        "6. products_optional can be left blank — company name alone is enough for search.",
+        "7. Add a subdomain: new Domains row + Companies rows with the same domain_id.",
+        "8. Upload this file in the Evidence Horizon console (Playbook Excel upload).",
         "",
-        "Starter domains: ep (Electrophysiology), nv (Neurovascular), surgery (Surgery).",
+        "Starter subdomains: Electrophysiology Ablation / PFA; Neurovascular Stenosis / Carotid Stenosis; Robotic Surgery / Surgical Stapling.",
     ]
     for i, line in enumerate(instructions, start=2):
         wi[f"A{i}"] = line
@@ -237,17 +248,37 @@ def playbook_from_excel(file: Path | BinaryIO | bytes) -> dict[str, Any]:
     domains_by_id: dict[str, dict[str, Any]] = {}
     if "Domains" in wb.sheetnames:
         ws = wb["Domains"]
+        headers = [
+            str(c.value or "").strip().casefold()
+            for c in next(ws.iter_rows(min_row=1, max_row=1))
+        ]
+        has_parent = "parent_domain" in headers
         for row in ws.iter_rows(min_row=2, values_only=True):
             if not row or not row[0]:
                 continue
             did = str(row[0]).strip()
+            if has_parent:
+                parent = str(row[1] or "").strip()
+                name = str(row[2] or did).strip()
+                enabled_raw = row[3] if len(row) > 3 else True
+                tech_raw = row[4] if len(row) > 4 else ""
+                disease_raw = row[5] if len(row) > 5 else ""
+                topic_raw = row[6] if len(row) > 6 else ""
+            else:
+                parent = ""
+                name = str(row[1] or did).strip()
+                enabled_raw = row[2] if len(row) > 2 else True
+                tech_raw = row[3] if len(row) > 3 else ""
+                disease_raw = row[4] if len(row) > 4 else ""
+                topic_raw = row[5] if len(row) > 5 else ""
             domains_by_id[did] = {
                 "id": did,
-                "name": str(row[1] or did).strip(),
-                "enabled": _as_bool(row[2]) if row[2] is not None else True,
-                "technologies": _split_keywords(row[3] if len(row) > 3 else ""),
-                "diseases": _split_keywords(row[4] if len(row) > 4 else ""),
-                "ep_topics": _split_keywords(row[5] if len(row) > 5 else ""),
+                "parent": parent,
+                "name": name,
+                "enabled": _as_bool(enabled_raw) if enabled_raw is not None else True,
+                "technologies": _split_keywords(tech_raw),
+                "diseases": _split_keywords(disease_raw),
+                "ep_topics": _split_keywords(topic_raw),
                 "companies": [],
                 "own_portfolio": [],
             }

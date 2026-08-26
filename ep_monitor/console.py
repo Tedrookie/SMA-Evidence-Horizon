@@ -213,9 +213,9 @@ def _render_app() -> None:
             "Tagline", meta.get("tagline", "From Evidence to Strategic Insight")
         )
         meta["digest_title"] = st.text_input(
-            "Digest title (after SMA Evidence Horizon:)",
+            "Digest title override (optional)",
             meta.get("digest_title", ""),
-            help="Shown in the email header, e.g. Stenosis in Neurovascular",
+            help="Leave blank to use enabled subdomain name(s), e.g. Neurovascular Stenosis",
         )
 
         st.markdown("#### Schedule")
@@ -289,7 +289,16 @@ def _render_app() -> None:
                     key=f"en_{i}",
                 )
                 domain["id"] = st.text_input("Domain id", domain.get("id", f"domain_{i}"), key=f"id_{i}")
-                domain["name"] = st.text_input("Display name", domain.get("name", ""), key=f"name_{i}")
+                domain["parent"] = st.text_input(
+                    "Parent domain (EP / NV / Surgery)",
+                    domain.get("parent", ""),
+                    key=f"parent_{i}",
+                )
+                domain["name"] = st.text_input(
+                    "Subdomain title (shown after SMA Evidence Horizon:)",
+                    domain.get("name", ""),
+                    key=f"name_{i}",
+                )
                 domain["technologies"] = [
                     x.strip()
                     for x in st.text_area(
@@ -356,15 +365,17 @@ def _render_app() -> None:
             st.success(f"Saved {path}")
             st.rerun()
 
-        st.markdown("#### Add a new domain")
-        nd1, nd2 = st.columns(2)
-        new_id = nd1.text_input("New domain id", "new_domain")
-        new_name = nd2.text_input("New domain name", "New Domain")
+        st.markdown("#### Add a new subdomain")
+        nd1, nd2, nd3 = st.columns(3)
+        new_id = nd1.text_input("New subdomain id", "new_subdomain")
+        new_parent = nd2.text_input("Parent", "Electrophysiology")
+        new_name = nd3.text_input("Subdomain title", "New Subdomain")
         if st.button("Add domain template"):
             domains.append(
                 {
-                    "id": new_id.strip() or "new_domain",
-                    "name": new_name.strip() or "New Domain",
+                    "id": new_id.strip() or "new_subdomain",
+                    "parent": new_parent.strip() or "",
+                    "name": new_name.strip() or "New Subdomain",
                     "enabled": False,
                     "technologies": [],
                     "diseases": [],
@@ -374,7 +385,7 @@ def _render_app() -> None:
                 }
             )
             pb.save_playbook(book)
-            st.success("Domain template added (disabled). Edit keywords, then enable & save.")
+            st.success("Subdomain template added (disabled). Edit keywords, then enable & save.")
             st.rerun()
 
     # ----------------------------------------------------------- Library

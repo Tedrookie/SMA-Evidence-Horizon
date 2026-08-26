@@ -95,9 +95,11 @@ python -m ep_monitor.main_basic --print-schedule
 
 ## Digest format
 
-- Masthead: slogan → **SMA Evidence Horizon: {digest_title}**  
-- **Summary:** Domain (full name); Articles Published (date range); Papers in this digest; J&J / other companies products used  
-- **Articles:** `Paper i/N` with first/last author + institute, products used from companies, full abstract
+- Masthead: slogan → **SMA Evidence Horizon: {subdomain}** (e.g. Neurovascular Stenosis)  
+- Dates: ISO `YYYY-MM-DD` everywhere  
+- **Summary:** Domain; Articles Published; Papers count; J&J / other products used  
+- **Articles:** `Paper i/N` with first/last author + institute, products used (or Not Determined)  
+- Footer: contact email · Beijing date
 
 ---
 
