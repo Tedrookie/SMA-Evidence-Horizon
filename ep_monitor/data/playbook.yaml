@@ -12,11 +12,13 @@ schedule:
 recipients:
 - name: ''
   email: zhangchuhan.rdfz@outlook.com
+- name: ''
+  email: rzhang45r@gmail.com
 domains:
 - id: ep_ablation
   name: Electrophysiology Ablation
   parent: Electrophysiology
-  enabled: true
+  enabled: false
   technologies:
   - Pulsed Field Ablation
   - Radiofrequency Ablation
@@ -133,7 +135,7 @@ domains:
 - id: nv_stenosis
   name: Neurovascular Stenosis
   parent: Neurovascular
-  enabled: false
+  enabled: true
   technologies:
   - Angioplasty
   - Stenting
